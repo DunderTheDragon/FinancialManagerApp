@@ -1,0 +1,105 @@
+﻿<UserControl x:Class="FinancialManagerApp.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1000"
+             Background="#ECF0F1">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid Margin="30">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Ustawienia Systemu" FontSize="24" FontWeight="Bold" Foreground="#2C3E50" Margin="0,0,0,20"/>
+
+                <Border Background="White" CornerRadius="10" Padding="20" Margin="0,0,0,20" BorderBrush="#D5DBDB" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="Automatyzacja i Tagowanie" FontSize="16" FontWeight="Bold" Margin="0,0,0,15" Foreground="#2C3E50"/>
+
+                        <CheckBox Content="Automatycznie zaznaczaj 'Checked Tag' po dopasowaniu reguły" 
+                                  IsChecked="{Binding AutoCheckTag}" Margin="0,8"/>
+
+                        <CheckBox Content="Nadpisuj istniejące reguły przy ręcznej zmianie tagu" 
+                                  IsChecked="{Binding OverwriteTags}" Margin="0,8"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,15,0,10">
+                            <TextBlock Text="Tolerancja Przypisania (%): " VerticalAlignment="Center" Foreground="#34495E"/>
+                            <TextBox Width="60" Text="{Binding AssignmentTolerance, FallbackValue='10'}" 
+                                     Margin="10,0,0,0" Padding="5" FontWeight="Bold"/>
+                        </StackPanel>
+
+                        <TextBlock Text="* Określa dopuszczalną różnicę w nazwie transakcji (algorytm Levenshteina)." 
+                                   FontSize="11" Foreground="#95A5A6" FontStyle="Italic"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="White" CornerRadius="10" Padding="20" BorderBrush="#D5DBDB" BorderThickness="1">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,20">
+                            <TextBlock Text="Reguły kategoryzacji" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Foreground="#2C3E50"/>
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="+ Dodaj nową regułę" Background="#3498DB" Foreground="White" 
+                                        Padding="15,5" FontWeight="SemiBold" Cursor="Hand" Margin="0,0,10,0" Command="{Binding AddRuleCommand}" />
+
+                                <TextBlock Text="Reguły priorytetowe" Foreground="#3498DB" FontSize="11" 
+                                           VerticalAlignment="Center" FontStyle="Italic" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <DataGrid ItemsSource="{Binding UserRules}" AutoGenerateColumns="False" CanUserAddRows="False" 
+                                  Height="350" Background="Transparent" BorderThickness="0" RowHeight="45"
+                                  VerticalContentAlignment="Center" HorizontalGridLinesBrush="#F2F4F4" VerticalGridLinesBrush="Transparent">
+
+                            <d:DataGrid.ItemsSource>
+                                <x:Array Type="{x:Type sys:Object}">
+                                    <sys:Object />
+                                    <sys:Object />
+                                </x:Array>
+                            </d:DataGrid.ItemsSource>
+
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Fraza w nazwie" Binding="{Binding Phrase, FallbackValue='Biedronka'}" Width="*"/>
+                                <DataGridTextColumn Header="Kategoria" Binding="{Binding Category, FallbackValue='Podstawowe'}" Width="150"/>
+                                <DataGridTextColumn Header="Sub-kategoria" Binding="{Binding SubCategory, FallbackValue='Produkty spożywcze'}" Width="150"/>
+
+                                <DataGridTemplateColumn Header="Akcje" Width="120">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Usuń" Background="#E74C3C" Foreground="White" 
+                                                    Padding="12,4" FontSize="10" FontWeight="Bold" Cursor="Hand" HorizontalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+
+                <Grid Margin="0,30,0,50">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="* Zmiany zostaną zastosowane przy następnej synchronizacji transakcji." 
+                               VerticalAlignment="Center" Foreground="#95A5A6" FontSize="12" FontStyle="Italic"/>
+
+                    <Button Grid.Column="1" Content="Zapisz wszystkie ustawienia" Background="#1ABC9C" Foreground="White" 
+                            Padding="30,12" FontWeight="Bold" FontSize="14" Cursor="Hand" BorderThickness="0" Command="{Binding SaveSettingsCommand}">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="5"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

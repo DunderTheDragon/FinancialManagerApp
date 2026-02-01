@@ -1,0 +1,26 @@
+﻿<Window x:Class="FinancialManagerApp.Views.RegistrationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#2C3E50">
+    <Grid>
+        <Border Background="White" Width="380" Height="520" CornerRadius="15" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <StackPanel Margin="30">
+                <TextBlock Text="Stwórz konto" FontSize="24" FontWeight="Bold" Foreground="#2C3E50" HorizontalAlignment="Center" Margin="0,10"/>
+                <TextBlock Text="Dołącz do Finansense" Foreground="#7F8C8D" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+
+                <TextBlock Text="Login" Margin="0,10,0,5" Foreground="#7F8C8D"/>
+                <TextBox x:Name="txtRegisterLogin" Padding="10" FontSize="14"/>
+
+                <TextBlock Text="Hasło" Margin="0,10,0,5" Foreground="#7F8C8D"/>
+                <PasswordBox x:Name="txtRegisterPassword" Padding="10" FontSize="14"/>
+
+                <TextBlock Text="Powtórz hasło" Margin="0,10,0,5" Foreground="#7F8C8D"/>
+                <PasswordBox x:Name="txtConfirmPassword" Padding="10" FontSize="14"/>
+
+                <Button Content="Zarejestruj" Click="btnRegister_Click" Background="#1ABC9C" Foreground="White" Height="40" Margin="0,25,0,0" FontWeight="Bold"/>
+
+                <Button Content="Masz już konto? Zaloguj się" Click="btnBackToLogin_Click" Background="Transparent" BorderThickness="0" Foreground="#3498DB" Margin="0,15"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

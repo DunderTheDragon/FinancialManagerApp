@@ -1,0 +1,102 @@
+﻿<Window x:Class="FinancialManagerApp.Views.AddTransactionView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        mc:Ignorable="d"
+        Title="Nowa Transakcja" Height="650" Width="400"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="#ECF0F1">
+
+    <Grid Margin="20">
+        <StackPanel>
+            <TextBlock Text="Dodaj Nową Transakcję" FontSize="20" FontWeight="Bold" Foreground="#2C3E50" Margin="0,0,0,15" HorizontalAlignment="Center"/>
+
+            <Border Background="White" CornerRadius="8" Padding="15" Margin="0,0,0,15" BorderBrush="#D5DBDB" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Rodzaj operacji" FontSize="11" Foreground="#7F8C8D" Margin="0,0,0,5"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                        <RadioButton x:Name="RadioExpense" Content="Wydatek" GroupName="Type" IsChecked="True" Foreground="#E74C3C" FontWeight="Bold" Margin="0,0,20,0"/>
+                        <RadioButton x:Name="RadioIncome" Content="Przychód" GroupName="Type" Foreground="#27AE60" FontWeight="Bold"/>
+                    </StackPanel>
+
+                    <TextBlock Text="Portfel źródłowy" FontSize="11" Foreground="#7F8C8D" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="WalletComboBox" SelectedIndex="0" Padding="5" DisplayMemberPath="Name" SelectedValuePath="Id">
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+
+            <Border Background="White" CornerRadius="8" Padding="15" Margin="0,0,0,15" BorderBrush="#D5DBDB" BorderThickness="1">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                            <TextBlock Text="Kwota (PLN)" FontSize="11" Foreground="#7F8C8D"/>
+                            <TextBox x:Name="AmountBox" Text="0,00" FontSize="16" FontWeight="Bold" Padding="5" Margin="0,5,0,0" HorizontalContentAlignment="Right"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Data" FontSize="11" Foreground="#7F8C8D"/>
+                            <DatePicker x:Name="DateBox" Margin="0,5,0,0" SelectedDate="{x:Static sys:DateTime.Now}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Nazwa transakcji" FontSize="11" Foreground="#7F8C8D" Margin="0,5,0,0"/>
+                    <TextBox x:Name="TransactionNameBox" Padding="5" Margin="0,5,0,10" ToolTip="Krótka nazwa, np. Biedronka"/>
+
+                    <TextBlock Text="Opis (Szczegóły)" FontSize="11" Foreground="#7F8C8D" Margin="0,0,0,0"/>
+                    <TextBox x:Name="DescriptionBox" Padding="5" Margin="0,5,0,0" Height="40" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" ToolTip="Dodatkowy opis"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="White" CornerRadius="8" Padding="15" Margin="0,0,0,20" BorderBrush="#D5DBDB" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Kategoryzacja" FontSize="11" Foreground="#7F8C8D" Margin="0,0,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Margin="0,0,5,0">
+                            <TextBlock Text="Kategoria" FontSize="10" Foreground="#BDC3C7"/>
+                            <ComboBox x:Name="CategoryComboBox" SelectedIndex="0" Margin="0,5,0,0">
+                                <ComboBoxItem Content="Podstawowe"/>
+                                <ComboBoxItem Content="Osobiste"/>
+                                <ComboBoxItem Content="Oszczędności"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                            <TextBlock Text="Sub-kategoria" FontSize="10" Foreground="#BDC3C7"/>
+                            <ComboBox x:Name="SubCategoryComboBox" SelectedIndex="0" Margin="0,5,0,0">
+                                <ComboBoxItem Content="Produkty spożywcze"/>
+                                <ComboBoxItem Content="Transport"/>
+                                <ComboBoxItem Content="Hobby"/>
+                                <ComboBoxItem Content="Restauracje"/>
+                                <ComboBoxItem Content="Skarbonka"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <UniformGrid Columns="2" Margin="0,5,0,0">
+                <Button Content="Anuluj" x:Name="BtnCancel" Click="BtnCancel_Click" Margin="0,0,5,0" Padding="10" Background="Transparent" BorderBrush="#BDC3C7" BorderThickness="1" Cursor="Hand"/>
+                <Button Content="Zapisz Transakcję" x:Name="BtnSave" Click="BtnSave_Click" Background="#1ABC9C" Foreground="White" Margin="5,0,0,0" Padding="10" FontWeight="Bold" BorderThickness="0" Cursor="Hand">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="4"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+            </UniformGrid>
+        </StackPanel>
+    </Grid>
+</Window>
