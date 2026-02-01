@@ -102,22 +102,22 @@ namespace FinancialManagerApp.ViewModels
                     {
                         var clientId = addWalletWindow.ApiClientId;
                         var privateKey = addWalletWindow.ApiKey;
+                        var refreshToken = addWalletWindow.RefreshToken; // <-- POBIERZ TOKEN
 
-                        // Wywołanie serwisu (API CALL)
-                        var accounts = await _revolutService.GetAccountsAsync(clientId, privateKey);
+                        // Wywołanie serwisu
+                        var accounts = await _revolutService.GetAccountsAsync(clientId, privateKey, refreshToken);
 
-                        // Dodaj znalezione konta do listy
                         foreach (var acc in accounts)
                         {
                             Wallets.Add(new WalletModel
                             {
-                                Name = acc.Name ?? "Konto Revolut",
+                                Name = acc.Name,
                                 Type = "API",
-                                Description = $"Waluta: {acc.Currency}",
                                 Balance = acc.Balance,
-                                RevolutClientId = clientId,        // ZAPISZ
-                                RevolutPrivateKey = privateKey,    // ZAPISZ
-                                RevolutAccountId = acc.Id          // ZAPISZ
+                                RevolutClientId = clientId,
+                                RevolutPrivateKey = privateKey,
+                                RevolutRefreshToken = refreshToken, // <-- ZAPISZ TOKEN DO MODELU
+                                RevolutAccountId = acc.Id
                             });
                         }
 

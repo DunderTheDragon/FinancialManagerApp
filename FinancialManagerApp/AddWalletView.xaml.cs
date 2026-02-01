@@ -1,16 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
+using FinancialManagerApp.Services;
 
 namespace FinancialManagerApp.Views
 {
@@ -21,35 +11,67 @@ namespace FinancialManagerApp.Views
             InitializeComponent();
         }
 
-        // --- WŁAŚCIWOŚCI PUBLICZNE (Dostępne dla ViewModelu) ---
-
-        // 1. Nazwa portfela (z TextBoxa x:Name="WalletNameBox")
+        // --- ISTNIEJĄCE WŁAŚCIWOŚCI ---
         public string WalletName => WalletNameBox.Text;
-
-        // 2. Czy wybrano API? (z RadioButtona x:Name="RadioAPI")
-        // IsChecked jest typu bool?, więc sprawdzamy czy jest równe true
         public bool IsApi => RadioAPI.IsChecked == true;
-
-        // 3. Dane do API (dla Revoluta)
         public string ApiClientId => ApiClientIdBox.Text;
-
-        // Uwaga: PasswordBox przechowuje tekst w właściwości .Password, a nie .Text
         public string ApiKey => ApiKeyBox.Text;
-
-        // 4. Dane do portfela manualnego
         public string InitialBalance => InitialBalanceBox.Text;
 
+        // --- DODAJ TĘ NOWĄ WŁAŚCIWOŚĆ ---
+        // Dzięki temu ViewModel pobierze token z pola tekstowego
+        public string RefreshToken => RefreshTokenBox.Text;
 
-        // --- OBSŁUGA ZDARZEŃ ---
+        // --- METODY OBSŁUGI ZDARZEŃ ---
 
-        // Metoda wywoływana po kliknięciu przycisku "Połącz i Utwórz"
-        // (Musi być podpięta w XAML jako Click="BtnCreate_Click")
         private void BtnCreate_Click(object sender, RoutedEventArgs e)
         {
-            // Ustawienie DialogResult na true informuje kod wywołujący (ViewModel),
-            // że użytkownik zatwierdził formularz, a nie anulował.
             this.DialogResult = true;
             this.Close();
+        }
+
+        // --- TUTAJ WKLEJ SWOJĄ METODĘ ---
+        private async void BtnAutoLogin_Click(object sender, RoutedEventArgs e)
+        {
+            string clientId = ApiClientIdBox.Text;
+            string privateKey = ApiKeyBox.Text;
+
+            if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(privateKey))
+            {
+                MessageBox.Show("Wprowadź najpierw Client ID i Klucz Prywatny!");
+                return;
+            }
+
+            // 1. Otwórz okno przeglądarki
+            // Pobieramy informację o środowisku z ComboBoxa w XAML (zakładam, że nazywa się EnvironmentCombo lub jest pierwszy na liście)
+            // Jeśli nie masz nazwanego ComboBoxa, dla testów przyjmijmy true:
+            bool isSandbox = true;
+
+            // Upewnij się, że masz klasę RevolutAuthWindow stworzoną w projekcie!
+            var authWindow = new RevolutAuthWindow(clientId, isSandbox);
+
+            if (authWindow.ShowDialog() == true)
+            {
+                string code = authWindow.CapturedAuthCode;
+
+                // 2. Wymień kod na Refresh Token
+                try
+                {
+                    // Tutaj tworzysz instancję serwisu
+                    var revolutService = new RevolutService();
+
+                    // UWAGA: Ta metoda musi istnieć w RevolutService.cs (patrz Krok 3 poniżej)
+                    string refreshToken = await revolutService.ExchangeAuthCodeForRefreshToken(code, clientId, privateKey);
+
+                    // 3. Wpisz token do pola tekstowego
+                    RefreshTokenBox.Text = refreshToken;
+                    MessageBox.Show("Autoryzacja udana! Refresh Token pobrany.");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Błąd wymiany tokena: " + ex.Message);
+                }
+            }
         }
     }
 }

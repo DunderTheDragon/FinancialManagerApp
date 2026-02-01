@@ -11,6 +11,7 @@
         // Nowe pola dla integracji API
         public string? RevolutClientId { get; set; }
         public string? RevolutPrivateKey { get; set; }
+        public string? RevolutRefreshToken { get; set; }
         public string? RevolutAccountId { get; set; }
         public DateTime? LastSyncDate { get; set; }
     }

@@ -1,9 +1,7 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
 
 namespace FinancialManagerApp.Models.Revolut
 {
@@ -18,13 +16,42 @@ namespace FinancialManagerApp.Models.Revolut
         [JsonProperty("completed_at")]
         public DateTime? CompletedAt { get; set; }
 
-        // W Revolucie ujemna kwota to wydatek, dodatnia to wpływ
-        // Ale czasem struktura jest inna (zależy od endpointu). 
-        // Przyjmijmy uproszczenie dla transaction leg.
+        // Revolut zwraca transakcje w częściach ("legs"). 
+        // Musimy je pobrać, aby znać kwotę.
+        [JsonProperty("legs")]
+        public List<RevolutTransactionLeg> Legs { get; set; }
+
+        [JsonProperty("reference")]
+        public string Reference { get; set; }
+
+        [JsonProperty("merchant")]
+        public RevolutMerchant Merchant { get; set; }
+
+        // Właściwość pomocnicza, która wyciąga kwotę i opis dla naszej aplikacji
+        public decimal TotalAmount => Legs?.FirstOrDefault()?.Amount ?? 0;
+        public string Description => !string.IsNullOrEmpty(Reference) ? Reference : (Merchant?.Name ?? "Transakcja Revolut");
+    }
+
+    public class RevolutTransactionLeg
+    {
+        [JsonProperty("leg_id")]
+        public string LegId { get; set; }
+
         [JsonProperty("amount")]
         public decimal Amount { get; set; }
 
-        [JsonProperty("description")] // Czasem jest to 'reference' lub pole w 'merchant'
+        [JsonProperty("currency")]
+        public string Currency { get; set; }
+
+        [JsonProperty("description")]
         public string Description { get; set; }
+    }
+
+    public class RevolutMerchant
+    {
+        [JsonProperty("name")]
+        public string Name { get; set; }
+        [JsonProperty("city")]
+        public string City { get; set; }
     }
 }
