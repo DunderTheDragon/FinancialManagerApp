@@ -34,6 +34,7 @@ namespace FinancialManagerApp.Services
                 var transactions = await _revolutService.GetTransactionsForWalletAsync(
                     wallet.RevolutClientId,
                     wallet.RevolutPrivateKey,
+                    wallet.RevolutRefreshToken,
                     wallet.RevolutAccountId,
                     wallet.LastSyncDate);
 
@@ -44,7 +45,7 @@ namespace FinancialManagerApp.Services
                     {
                         Date = revTransaction.CompletedAt ?? revTransaction.CreatedAt,
                         Name = revTransaction.Description ?? "Transakcja Revolut",
-                        Amount = revTransaction.Amount,
+                        Amount = revTransaction.TotalAmount,
                         Category = "", // Można dodać automatyczne kategoryzowanie
                         SubCategory = "",
                         CheckedTag = revTransaction.CompletedAt.HasValue

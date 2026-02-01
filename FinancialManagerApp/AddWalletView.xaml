@@ -60,7 +60,7 @@
                         <TextBox x:Name="ApiClientIdBox" Padding="5" Margin="0,5,0,10" ToolTip="np. oa_sandbox_..." Background="#F4F6F7"/>
 
                         <Button Content="Zaloguj i Pobierz Token" Click="BtnAutoLogin_Click" Background="#3498DB" Foreground="White" Margin="0,5,0,10" Padding="5"/>
-                        <TextBox x:Name="RefreshTokenBox" IsReadOnly="True" Background="#ECF0F1" ... />
+                        <TextBox x:Name="RefreshTokenBox" Padding="5" Margin="0,5,0,10" Background="#ECF0F1" IsReadOnly="True" ToolTip="Token zostanie pobrany automatycznie po zalogowaniu"/>
 
                         <TextBlock Text="Sandbox API Key / Secret (Private Key)" FontSize="11" Foreground="#7F8C8D"/>
 
