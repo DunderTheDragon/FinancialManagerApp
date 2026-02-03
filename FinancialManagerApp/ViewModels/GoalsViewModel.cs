@@ -275,15 +275,12 @@ namespace FinancialManagerApp.ViewModels
                 using (var conn = new MySqlConnection(_connectionString))
                 {
                     conn.Open();
-                    using (var trans = conn.BeginTransaction()) // Transakcja gwarantuje spójność danych
+                    using (var trans = conn.BeginTransaction())
                     {
                         try
                         {
-                            // Odejmij z portfela
+                            // 1. Odejmij z portfela (używamy dodatniego 'amount', bo odejmujemy w SQL)
                             string subWallet = "UPDATE portfele SET saldo = saldo - @amt WHERE id = @wid";
-                            // Dodaj do skarbonki
-                            string addGoal = "UPDATE skarbonki SET kwota_aktualna = kwota_aktualna + @amt WHERE id = @gid";
-
                             using (var cmd = new MySqlCommand(subWallet, conn, trans))
                             {
                                 cmd.Parameters.AddWithValue("@amt", amount);
@@ -291,10 +288,26 @@ namespace FinancialManagerApp.ViewModels
                                 cmd.ExecuteNonQuery();
                             }
 
+                            // 2. Dodaj do skarbonki (zwiększamy stan oszczędności)
+                            string addGoal = "UPDATE skarbonki SET kwota_aktualna = kwota_aktualna + @amt WHERE id = @gid";
                             using (var cmd = new MySqlCommand(addGoal, conn, trans))
                             {
                                 cmd.Parameters.AddWithValue("@amt", amount);
                                 cmd.Parameters.AddWithValue("@gid", goal.Id);
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            // 3. Dodaj wpis do historii transakcji jako WYDATEK (kwota ujemna)
+                            // Zmieniamy @amt na -amount
+                            string addTransaction = @"
+                        INSERT INTO transakcje (id_portfela, id_kategorii, id_subkategorii, kwota, nazwa, data_transakcji, checkedTag) 
+                        VALUES (@wid, 3, NULL, @amtNeg, @name, NOW(), 1)";
+
+                            using (var cmd = new MySqlCommand(addTransaction, conn, trans))
+                            {
+                                cmd.Parameters.AddWithValue("@wid", walletId);
+                                cmd.Parameters.AddWithValue("@amtNeg", -amount); // <--- TUTAJ dodajemy minus
+                                cmd.Parameters.AddWithValue("@name", $"SKARBONKA: {goal.GoalName.ToUpper()}");
                                 cmd.ExecuteNonQuery();
                             }
 

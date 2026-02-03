@@ -16,6 +16,22 @@ namespace FinancialManagerApp.ViewModels
         private string _connectionString = "Server=localhost; Database=financialmanagerapp; Uid=root; Pwd=;";
         private int _currentUserId;
 
+        // --- NOWE WŁAŚCIWOŚCI DLA WYBORU MIESIĄCA ---
+        public ObservableCollection<DateTime> AvailableMonths { get; set; } = new ObservableCollection<DateTime>();
+
+        private DateTime _selectedMonth;
+        public DateTime SelectedMonth
+        {
+            get => _selectedMonth;
+            set
+            {
+                _selectedMonth = value;
+                OnPropertyChanged();
+                // Każda zmiana miesiąca odświeża wykres kołowy
+                LoadPieChartData();
+            }
+        }
+
         // --- ISTNIEJĄCE WŁAŚCIWOŚCI ---
         private decimal _totalBalance;
         public decimal TotalBalance
@@ -23,53 +39,75 @@ namespace FinancialManagerApp.ViewModels
             get => _totalBalance;
             set { _totalBalance = value; OnPropertyChanged(); }
         }
-        public ObservableCollection<object> LastTransactions { get; set; } = new ObservableCollection<object>();
 
-        // --- NOWE WŁAŚCIWOŚCI DLA WYKRESÓW ---
+        public ObservableCollection<object> LastTransactions { get; set; } = new ObservableCollection<object>();
         public SeriesCollection BarSeriesCollection { get; set; } = new SeriesCollection();
         public SeriesCollection PieSeriesCollection { get; set; } = new SeriesCollection();
         public List<string> BarLabels { get; set; } = new List<string>();
         public Func<double, string> YFormatter { get; set; } = value => value.ToString("N2") + " zł";
-
-        // Listy dla ComboBoxów
         public ObservableCollection<WalletModel> AvailableWallets { get; set; } = new ObservableCollection<WalletModel>();
 
         private WalletModel _selectedWalletForChart;
         public WalletModel SelectedWalletForChart
         {
             get => _selectedWalletForChart;
-            set { _selectedWalletForChart = value; OnPropertyChanged(); LoadBarChartData(); }
+            set
+            {
+                _selectedWalletForChart = value;
+                OnPropertyChanged();
+                LoadBarChartData();
+            }
         }
 
         private string _selectedCategorizationType = "Kategoryzacja podstawowa";
         public string SelectedCategorizationType
         {
             get => _selectedCategorizationType;
-            set { _selectedCategorizationType = value; OnPropertyChanged(); LoadPieChartData(); }
+            set
+            {
+                _selectedCategorizationType = value;
+                OnPropertyChanged();
+                LoadPieChartData();
+            }
         }
 
-        // Teksty statystyk
         private string _averageSpendingText;
         public string AverageSpendingText { get => _averageSpendingText; set { _averageSpendingText = value; OnPropertyChanged(); } }
 
         private string _comparisonToPlanText;
         public string ComparisonToPlanText { get => _comparisonToPlanText; set { _comparisonToPlanText = value; OnPropertyChanged(); } }
 
+        // --- KONSTRUKTOR ---
         public DashboardViewModel(User user)
         {
             if (user != null)
             {
                 _currentUserId = user.Id;
-                InitializeData();
+
+                // 1. Najpierw przygotuj listę miesięcy
+                InitializeMonthPicker();
+
+                // 2. Potem ładuj resztę danych
+                LoadAvailableWallets();
+                RefreshData();
+                LoadPieChartData();
             }
         }
 
-        private void InitializeData()
+        private void InitializeMonthPicker()
         {
-            LoadAvailableWallets();
-            RefreshData();
-            LoadBarChartData();
-            LoadPieChartData();
+            AvailableMonths.Clear();
+            var start = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
+            // Dodaj ostatnie 12 miesięcy do listy
+            for (int i = 0; i < 12; i++)
+            {
+                AvailableMonths.Add(start.AddMonths(-i));
+            }
+
+            // Ustaw domyślnie bieżący miesiąc bez wyzwalania LoadPieChartData dwa razy
+            _selectedMonth = AvailableMonths[0];
+            OnPropertyChanged(nameof(SelectedMonth));
         }
 
         public void RefreshData()
@@ -78,7 +116,146 @@ namespace FinancialManagerApp.ViewModels
             LoadLastTransactions(_currentUserId);
         }
 
-        // --- LOGIKA PORTFELI (Dla ComboBox) ---
+        // --- ZMODYFIKOWANA METODA WYKRESU KOŁOWEGO ---
+        private void LoadPieChartData()
+        {
+            try
+            {
+                var newPieSeries = new SeriesCollection();
+                Func<ChartPoint, string> labelOnChart = chartPoint => string.Format("{0:P0}", chartPoint.Participation);
+
+                int m = SelectedMonth.Month;
+                int y = SelectedMonth.Year;
+
+                using (var conn = new MySqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    bool isBasic = string.IsNullOrWhiteSpace(SelectedCategorizationType) ||
+                                   SelectedCategorizationType.IndexOf("podstawowa", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    // 1. WYDATKI (Używamy parametrów @month i @year)
+                    string catLogic = isBasic ? "k.typ" : "CONCAT(UPPER(k.typ), ' - ', COALESCE(UPPER(s.nazwa), 'INNE'))";
+                    string queryExpenses = $@"
+                        SELECT {catLogic} as grupa, SUM(ABS(t.kwota)) as suma 
+                        FROM transakcje t 
+                        JOIN kategorie k ON t.id_kategorii = k.id
+                        LEFT JOIN subkategorie s ON t.id_subkategorii = s.id
+                        JOIN portfele p ON t.id_portfela = p.id
+                        WHERE p.id_uzytkownika = @userId 
+                        AND t.kwota < 0 AND k.id IN (1, 2)
+                        AND MONTH(t.data_transakcji) = @month AND YEAR(t.data_transakcji) = @year
+                        GROUP BY grupa";
+
+                    using (var cmd = new MySqlCommand(queryExpenses, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", _currentUserId);
+                        cmd.Parameters.AddWithValue("@month", m);
+                        cmd.Parameters.AddWithValue("@year", y);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var slice = CreatePieSlice(reader.GetString("grupa"), Convert.ToDouble(reader["suma"]));
+                                slice.LabelPoint = labelOnChart;
+                                slice.DataLabels = true;
+                                newPieSeries.Add(slice);
+                            }
+                        }
+                    }
+
+                    // --- SEKCJA OSZCZĘDNOŚCI ---
+                    double sumaSkarbonki = GetSumFromDb(conn, 3, m, y);
+                    double balance = GetCurrentBalance(conn, m, y);
+
+                    if (isBasic)
+                    {
+                        double sumaTotal = sumaSkarbonki + balance;
+                        if (sumaTotal > 0)
+                        {
+                            var slice = CreatePieSlice("OSZCZĘDNOŚCI", sumaTotal, System.Windows.Media.Brushes.Gold);
+                            slice.LabelPoint = labelOnChart;
+                            slice.DataLabels = true;
+                            newPieSeries.Add(slice);
+                        }
+                    }
+                    else
+                    {
+                        if (sumaSkarbonki > 0)
+                        {
+                            var slice = CreatePieSlice("OSZCZĘDNOŚCI - SKARBONKI", sumaSkarbonki, System.Windows.Media.Brushes.Gold);
+                            slice.LabelPoint = labelOnChart;
+                            slice.DataLabels = true;
+                            newPieSeries.Add(slice);
+                        }
+                        if (balance > 0)
+                        {
+                            var slice = CreatePieSlice("OSZCZĘDNOŚCI - POZOSTAŁO", balance, System.Windows.Media.Brushes.MediumSeaGreen);
+                            slice.LabelPoint = labelOnChart;
+                            slice.DataLabels = true;
+                            newPieSeries.Add(slice);
+                        }
+                    }
+                }
+
+                if (newPieSeries.Count == 0)
+                {
+                    newPieSeries.Add(new PieSeries { Title = "BRAK DANYCH", Values = new ChartValues<double> { 1e-10 }, Opacity = 0 });
+                }
+
+                PieSeriesCollection = newPieSeries;
+                OnPropertyChanged(nameof(PieSeriesCollection));
+                UpdateComparisonStats();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Błąd PieChart: " + ex.Message); }
+        }
+
+        // --- ZAKTUALIZOWANE METODY POMOCNICZE Z PARAMETRAMI DATY ---
+        private double GetSumFromDb(MySqlConnection conn, int catId, int month, int year)
+        {
+            string sql = $@"SELECT SUM(ABS(t.kwota)) FROM transakcje t JOIN portfele p ON t.id_portfela = p.id 
+                    WHERE p.id_uzytkownika = @userId AND t.id_kategorii = @catId
+                    AND MONTH(t.data_transakcji) = @month AND YEAR(t.data_transakcji) = @year";
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@userId", _currentUserId);
+                cmd.Parameters.AddWithValue("@catId", catId);
+                cmd.Parameters.AddWithValue("@month", month);
+                cmd.Parameters.AddWithValue("@year", year);
+                var res = cmd.ExecuteScalar();
+                return (res != DBNull.Value) ? Convert.ToDouble(res) : 0;
+            }
+        }
+
+        private double GetCurrentBalance(MySqlConnection conn, int month, int year)
+        {
+            string sql = @"SELECT SUM(t.kwota) FROM transakcje t JOIN portfele p ON t.id_portfela = p.id 
+                    WHERE p.id_uzytkownika = @userId 
+                    AND MONTH(t.data_transakcji) = @month AND YEAR(t.data_transakcji) = @year";
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@userId", _currentUserId);
+                cmd.Parameters.AddWithValue("@month", month);
+                cmd.Parameters.AddWithValue("@year", year);
+                var res = cmd.ExecuteScalar();
+                double val = (res != DBNull.Value) ? Convert.ToDouble(res) : 0;
+                return val > 0 ? val : 0;
+            }
+        }
+
+        private PieSeries CreatePieSlice(string title, double value, System.Windows.Media.Brush fill = null)
+        {
+            var series = new PieSeries
+            {
+                Title = title.ToUpper(),
+                Values = new ChartValues<double> { value },
+                DataLabels = true,
+                FontSize = 9
+            };
+            if (fill != null) series.Fill = fill;
+            return series;
+        }
+
+        // Pozostałe metody (LoadAvailableWallets, LoadBarChartData, LoadLastTransactions itd.) bez zmian...
         private void LoadAvailableWallets()
         {
             AvailableWallets.Clear();
@@ -101,7 +278,6 @@ namespace FinancialManagerApp.ViewModels
             SelectedWalletForChart = AvailableWallets[0];
         }
 
-        // --- WYKRES SŁUPKOWY (Wydatki wg kategorii - ostatnie miesiące) ---
         private void LoadBarChartData()
         {
             try
@@ -114,7 +290,6 @@ namespace FinancialManagerApp.ViewModels
                     conn.Open();
                     string walletFilter = SelectedWalletForChart?.Id != -1 ? "AND t.id_portfela = @walletId" : "";
 
-                    // DODANO: t.kwota < 0 (filtrujemy tylko wydatki)
                     string query = $@"
                         SELECT k.typ as kategoria_nazwa, MONTH(t.data_transakcji) as miesiac, SUM(ABS(t.kwota)) as suma 
                         FROM transakcje t
@@ -137,7 +312,7 @@ namespace FinancialManagerApp.ViewModels
                             {
                                 results.Add(new
                                 {
-                                    Cat = reader.GetString("kategoria_nazwa"), // Pobieramy 'podstawowe', 'osobiste' itd.
+                                    Cat = reader.GetString("kategoria_nazwa"),
                                     Val = reader.GetDouble("suma"),
                                     Month = reader.GetInt32("miesiac")
                                 });
@@ -148,19 +323,20 @@ namespace FinancialManagerApp.ViewModels
                         {
                             BarSeriesCollection = newBarSeries;
                             BarLabels = newLabels;
+                            OnPropertyChanged(nameof(BarSeriesCollection));
+                            OnPropertyChanged(nameof(BarLabels));
                             return;
                         }
 
-                        var monthNames = results.Select(r => (string)System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName((int)r.Month))
-                                               .Distinct().ToList();
-                        newLabels.AddRange(monthNames);
+                        newLabels = results.Select(r => (string)System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName((int)r.Month))
+                                          .Distinct().ToList();
 
                         var categories = results.Select(r => (string)r.Cat).Distinct();
                         foreach (var cat in categories)
                         {
                             newBarSeries.Add(new ColumnSeries
                             {
-                                Title = cat,
+                                Title = cat.ToUpper(),
                                 Values = new ChartValues<double>(results.Where(r => (string)r.Cat == cat).Select(r => (double)r.Val))
                             });
                         }
@@ -174,174 +350,21 @@ namespace FinancialManagerApp.ViewModels
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
         }
 
-        // --- WYKRES KOŁOWY (Udział wydatków + Oszczędności) ---
-        private void LoadPieChartData()
-        {
-            try
-            {
-                var newPieSeries = new SeriesCollection();
-                using (var conn = new MySqlConnection(_connectionString))
-                {
-                    conn.Open();
-
-                    // 1. LOGIKA WYBORU GRUPOWANIA
-                    bool isBasic = SelectedCategorizationType.Contains("Podstawowa");
-                    string catLogic = isBasic ? "k.typ" : "s.nazwa";
-
-                    // 2. ZAPYTANIE O WYDATKI (kwota < 0)
-                    string query = $@"
-                SELECT {catLogic} as grupa, SUM(ABS(t.kwota)) as suma 
-                FROM transakcje t 
-                JOIN kategorie k ON t.id_kategorii = k.id
-                LEFT JOIN subkategorie s ON t.id_subkategorii = s.id
-                JOIN portfele p ON t.id_portfela = p.id
-                WHERE p.id_uzytkownika = @userId 
-                AND t.kwota < 0 
-                AND MONTH(t.data_transakcji) = MONTH(NOW())
-                AND YEAR(t.data_transakcji) = YEAR(NOW())
-                GROUP BY grupa";
-
-                    using (var cmd = new MySqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@userId", _currentUserId);
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                string label = reader.IsDBNull(reader.GetOrdinal("grupa")) ? "Inne" : reader.GetString("grupa");
-
-                                newPieSeries.Add(new PieSeries
-                                {
-                                    Title = label.ToUpper(),
-                                    Values = new ChartValues<double> { reader.GetDouble("suma") },
-                                    DataLabels = true,
-                                    FontSize = 8,
-                                    // ZMIANA: Wyświetlanie procentów zamiast kwoty
-                                    LabelPoint = chartPoint => string.Format("{0:P1}", chartPoint.Participation)
-                                });
-                            }
-                        }
-                    }
-
-                    // 3. SEKCJA OSZCZĘDNOŚCI / SKARBONEK
-                    if (isBasic)
-                    {
-                        string savingsQuery = @"
-                    SELECT SUM(t.kwota) FROM transakcje t
-                    JOIN portfele p ON t.id_portfela = p.id
-                    WHERE p.id_uzytkownika = @userId 
-                    AND MONTH(t.data_transakcji) = MONTH(NOW())";
-
-                        using (var cmd = new MySqlCommand(savingsQuery, conn))
-                        {
-                            cmd.Parameters.AddWithValue("@userId", _currentUserId);
-                            var res = cmd.ExecuteScalar();
-                            double balance = (res != DBNull.Value) ? Convert.ToDouble(res) : 0;
-
-                            if (balance > 0)
-                            {
-                                newPieSeries.Add(new PieSeries
-                                {
-                                    Title = "OSZCZĘDNOŚCI",
-                                    Values = new ChartValues<double> { balance },
-                                    Fill = System.Windows.Media.Brushes.MediumSeaGreen,
-                                    DataLabels = true,
-                                    FontSize = 8,
-                                    // ZMIANA: Ujednolicenie formatu na procentowy (P1)
-                                    LabelPoint = chartPoint => string.Format("{0:P1}", chartPoint.Participation)
-                                });
-                            }
-                        }
-                    }
-                    else
-                    {
-                        string goalsQuery = @"
-                    SELECT t.nazwa as cel, SUM(ABS(t.kwota)) as suma 
-                    FROM transakcje t
-                    JOIN portfele p ON t.id_portfela = p.id
-                    WHERE p.id_uzytkownika = @userId 
-                    AND t.id_subkategorii = 5
-                    AND MONTH(t.data_transakcji) = MONTH(NOW())
-                    GROUP BY t.nazwa";
-
-                        using (var cmd = new MySqlCommand(goalsQuery, conn))
-                        {
-                            cmd.Parameters.AddWithValue("@userId", _currentUserId);
-                            using (var reader = cmd.ExecuteReader())
-                            {
-                                while (reader.Read())
-                                {
-                                    newPieSeries.Add(new PieSeries
-                                    {
-                                        Title = "SKARBONKA: " + reader.GetString("cel").ToUpper(),
-                                        Values = new ChartValues<double> { reader.GetDouble("suma") },
-                                        DataLabels = true,
-                                        FontSize = 8,
-                                        // ZMIANA: Ujednolicenie formatu na procentowy (P1)
-                                        LabelPoint = chartPoint => string.Format("{0:P1}", chartPoint.Participation)
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                PieSeriesCollection = newPieSeries;
-                OnPropertyChanged(nameof(PieSeriesCollection));
-                UpdateComparisonStats();
-            }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Błąd LoadPieChartData: " + ex.Message); }
-        }
-
-        private void UpdateComparisonStats()
-        {
-            // Przykładowa logika obliczeń porównawczych (można rozbudować o SQL)
-            ComparisonToPlanText = "Zaoszczędzono: +150,00 zł vs cel";
-            AverageSpendingText = "Średnia z 12 m-cy: 2 450,00 zł";
-        }
-
-        private void CalculateTotalBalance(int userId)
-        {
-            try
-            {
-                using (MySqlConnection conn = new MySqlConnection(_connectionString))
-                {
-                    conn.Open();
-                    // Sumuje saldo wszystkich aktywnych kont przypisanych do użytkownika 
-                    string query = "SELECT SUM(saldo) FROM portfele WHERE id_uzytkownika = @userId";
-
-                    using (MySqlCommand cmd = new MySqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@userId", userId);
-                        var result = cmd.ExecuteScalar();
-                        TotalBalance = result != DBNull.Value ? Convert.ToDecimal(result) : 0;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("Błąd salda: " + ex.Message);
-            }
-        }
-
         private void LoadLastTransactions(int userId)
         {
             try
             {
-                using (MySqlConnection conn = new MySqlConnection(_connectionString))
+                using (var conn = new MySqlConnection(_connectionString))
                 {
                     conn.Open();
-                    // Pobiera 5 ostatnich transakcji ze wszystkich portfeli użytkownika 
-                    // Łączymy z tabelą portfele, aby pobrać nazwę źródła 
                     string query = @"
                         SELECT t.nazwa, t.kwota, t.data_transakcji, p.nazwa as portfel_nazwa 
                         FROM transakcje t
                         JOIN portfele p ON t.id_portfela = p.id
                         WHERE p.id_uzytkownika = @userId
-                        ORDER BY t.data_transakcji DESC
-                        LIMIT 5";
+                        ORDER BY t.data_transakcji DESC LIMIT 5";
 
-                    using (MySqlCommand cmd = new MySqlCommand(query, conn))
+                    using (var cmd = new MySqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@userId", userId);
                         using (var reader = cmd.ExecuteReader())
@@ -361,10 +384,32 @@ namespace FinancialManagerApp.ViewModels
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        private void UpdateComparisonStats()
+        {
+            ComparisonToPlanText = "Zaoszczędzono: +150,00 zł vs cel";
+            AverageSpendingText = "Średnia z 12 m-cy: 2 450,00 zł";
+        }
+
+        private void CalculateTotalBalance(int userId)
+        {
+            try
             {
-                System.Diagnostics.Debug.WriteLine("Błąd transakcji: " + ex.Message);
+                using (var conn = new MySqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = "SELECT SUM(saldo) FROM portfele WHERE id_uzytkownika = @userId";
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", userId);
+                        var result = cmd.ExecuteScalar();
+                        TotalBalance = result != DBNull.Value ? Convert.ToDecimal(result) : 0;
+                    }
+                }
             }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
         }
     }
 }

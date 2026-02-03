@@ -69,7 +69,6 @@
                             <ComboBox x:Name="CategoryComboBox" SelectedIndex="0" Margin="0,5,0,0">
                                 <ComboBoxItem Content="Podstawowe"/>
                                 <ComboBoxItem Content="Osobiste"/>
-                                <ComboBoxItem Content="Oszczędności"/>
                             </ComboBox>
                         </StackPanel>
 
