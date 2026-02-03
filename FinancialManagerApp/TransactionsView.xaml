@@ -80,7 +80,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Data" Binding="{Binding Date, StringFormat={}{0:dd.MM.yyyy}}" Width="100" IsReadOnly="True" Foreground="#7F8C8D"/>
 
-                    <DataGridTextColumn Header="Nazwa / Opis" Binding="{Binding Name}" Width="*" IsReadOnly="True">
+                    <DataGridTextColumn Header="Nazwa" Binding="{Binding Name}" Width="*" IsReadOnly="True">
                     </DataGridTextColumn>
 
                     <DataGridTextColumn Header="Konto" Binding="{Binding WalletName}" Width="120" IsReadOnly="True"/>
@@ -106,13 +106,7 @@
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
 
-                    <DataGridTemplateColumn Header="Status" Width="110">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Button Style="{StaticResource ConfirmButtonStyle}" FontSize="10" Margin="5"/>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
+                
                 </DataGrid.Columns>
             </DataGrid>
         </Border>

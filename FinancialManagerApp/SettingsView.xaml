@@ -21,9 +21,6 @@
                     <StackPanel>
                         <TextBlock Text="Automatyzacja i Tagowanie" FontSize="16" FontWeight="Bold" Margin="0,0,0,15" Foreground="#2C3E50"/>
 
-                        <CheckBox Content="Automatycznie zaznaczaj 'Checked Tag' po dopasowaniu reguły" 
-                                  IsChecked="{Binding AutoCheckTag}" Margin="0,8"/>
-
                         <CheckBox Content="Nadpisuj istniejące reguły przy ręcznej zmianie tagu" 
                                   IsChecked="{Binding OverwriteTags}" Margin="0,8"/>
 
