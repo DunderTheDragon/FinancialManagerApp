@@ -17,6 +17,9 @@ namespace FinancialManagerApp.ViewModels
         public ObservableCollection<TransactionModel> Transactions { get; set; }
         public ICommand OpenAddTransactionCommand { get; }
 
+        // NOWOŚĆ: Komenda do wywołania z XAML
+        public ICommand RefreshCommand { get; }
+
         private bool _onlyUnchecked;
         public bool OnlyUnchecked
         {
@@ -24,8 +27,8 @@ namespace FinancialManagerApp.ViewModels
             set
             {
                 _onlyUnchecked = value;
-                OnPropertyChanged(); // Powiadomienie UI o zmianie
-                LoadTransactionsFromDb(); // Automatyczne odświeżenie listy przy zmianie filtra 
+                OnPropertyChanged();
+                LoadTransactionsFromDb();
             }
         }
 
@@ -33,7 +36,17 @@ namespace FinancialManagerApp.ViewModels
         {
             CurrentUser = user;
             Transactions = new ObservableCollection<TransactionModel>();
+
             OpenAddTransactionCommand = new RelayCommand(ExecuteOpenAddTransaction);
+            // Inicjalizacja komendy odświeżania
+            RefreshCommand = new RelayCommand(_ => Refresh());
+
+            Refresh(); // Pierwsze ładowanie
+        }
+
+        // Metoda publiczna, którą można wywołać przy "wejściu" w zakładkę
+        public void Refresh()
+        {
             LoadTransactionsFromDb();
         }
 
@@ -44,13 +57,15 @@ namespace FinancialManagerApp.ViewModels
                 using (MySqlConnection conn = new MySqlConnection(_connectionString))
                 {
                     conn.Open();
-                    // JOINy są kluczowe, aby pobrać nazwy zamiast samych ID
+                    // POPRAWKA SQL: Dodałem LEFT JOIN do subkategorii, o którym wspominałeś wcześniej
                     string query = @"
-                SELECT t.*, p.nazwa as wallet_name, k.typ as nazwa_kategorii 
-                FROM transakcje t 
-                JOIN portfele p ON t.id_portfela = p.id 
-                JOIN kategorie k ON t.id_kategorii = k.id 
-                WHERE p.id_uzytkownika = @userId";
+                        SELECT t.*, p.nazwa as wallet_name, k.typ as nazwa_kategorii, 
+                               COALESCE(s.nazwa, 'Brak') as nazwa_subkategorii
+                        FROM transakcje t 
+                        JOIN portfele p ON t.id_portfela = p.id 
+                        JOIN kategorie k ON t.id_kategorii = k.id 
+                        LEFT JOIN subkategorie s ON t.id_subkategorii = s.id
+                        WHERE p.id_uzytkownika = @userId";
 
                     if (OnlyUnchecked) query += " AND t.checkedTag = 0";
                     query += " ORDER BY t.data_transakcji DESC";
@@ -63,24 +78,14 @@ namespace FinancialManagerApp.ViewModels
                             Transactions.Clear();
                             while (reader.Read())
                             {
-                                // TUTAJ NALEŻY DOKŁADNIE ZMAPOWAĆ POLA
                                 Transactions.Add(new TransactionModel
                                 {
                                     Id = reader.GetInt32("id"),
                                     Date = reader.GetDateTime("data_transakcji"),
-
-                                    // Mapowanie "Nazwa / Opis"
                                     Name = reader.GetString("nazwa"),
-
-                                    // Mapowanie "Konto" (używamy aliasu wallet_name z SQL)
                                     WalletName = reader.GetString("wallet_name"),
-
-                                    // Mapowanie kategorii tekstowej z JOINa
                                     Category = reader.GetString("nazwa_kategorii"),
-
-                                    // Jeśli masz kolumnę tekstową subkategorii w bazie lub robisz to tymczasowo:
-                                    SubCategory = "Brak",
-
+                                    SubCategory = reader.GetString("nazwa_subkategorii"), // Teraz z bazy!
                                     Amount = reader.GetDecimal("kwota"),
                                     CheckedTag = reader.GetBoolean("checkedTag")
                                 });
