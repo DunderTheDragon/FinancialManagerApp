@@ -11,42 +11,28 @@ namespace FinancialManagerApp.Views
             InitializeComponent();
         }
 
-        // --- WŁAŚCIWOŚCI DO ODBIORU DANYCH Przez ViewModel ---
-
         public int SelectedWalletId => (WalletComboBox.SelectedValue != null) ? (int)WalletComboBox.SelectedValue : 0;
-
-        public decimal TransactionAmount
-        {
-            get
-            {
-                decimal.TryParse(AmountBox.Text, out decimal val);
-                // Jeśli wybrano "Wydatek", zwracamy wartość ujemną
-                return RadioExpense.IsChecked == true ? -val : val;
-            }
-        }
-
         public string TransactionName => TransactionNameBox.Text;
-        public string SelectedCategory => (CategoryComboBox.SelectedItem as ComboBoxItem)?.Content.ToString();
-        public string SelectedSubCategory => (SubCategoryComboBox.SelectedItem as ComboBoxItem)?.Content.ToString();
         public DateTime SelectedDate => DateBox.SelectedDate ?? DateTime.Now;
+        public decimal TransactionAmount => decimal.TryParse(AmountBox.Text, out decimal val) ? val : 0;
 
-        // --- METODY OBSŁUGI ZDARZEŃ (Naprawiają błędy kompilacji) ---
+        // NAPRAWA BŁĘDU: Dodanie IsExpense
+        public bool IsExpense => RadioExpense.IsChecked == true;
+
+        // Dopasowanie nazw do Twojego nowego modelu
+        public int SelectedCategoryId => CategoryComboBox.SelectedIndex + 1;
+        public int SelectedSubCategoryId => SubCategoryComboBox.SelectedIndex + 1;
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(TransactionName) || TransactionAmount == 0 || WalletComboBox.SelectedValue == null)
+            if (string.IsNullOrWhiteSpace(TransactionName) || TransactionAmount <= 0)
             {
-                MessageBox.Show("Uzupełnij wszystkie wymagane pola (Portfel, Nazwa, Kwota)!", "Błąd walidacji");
+                MessageBox.Show("Podaj poprawną nazwę i kwotę!");
                 return;
             }
-
-            this.DialogResult = true; // Zamyka okno i przesyła wynik do ViewModelu
+            this.DialogResult = true;
         }
 
-        private void BtnCancel_Click(object sender, RoutedEventArgs e)
-        {
-            this.DialogResult = false;
-            this.Close();
-        }
+        private void BtnCancel_Click(object sender, RoutedEventArgs e) => this.DialogResult = false;
     }
 }

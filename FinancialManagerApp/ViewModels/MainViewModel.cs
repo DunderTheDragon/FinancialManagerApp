@@ -37,7 +37,7 @@ namespace FinancialManagerApp.ViewModels
             DashboardVM = new DashboardViewModel(CurrentUser);
             TransactionsVM = new TransactionsViewModel(CurrentUser);
             WalletsVM = new WalletsViewModel(CurrentUser, TransactionsVM);
-            GoalsVM = new GoalsViewModel();
+            GoalsVM = new GoalsViewModel(CurrentUser);
             SettingsVM = new SettingsViewModel();
 
             // Domyślny widok przy starcie

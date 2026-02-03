@@ -44,7 +44,7 @@ namespace FinancialManagerApp.ViewModels
                 using (MySqlConnection conn = new MySqlConnection(_connectionString))
                 {
                     conn.Open();
-                    // JOIN pozwala wyciągnąć nazwę kategorii z innej tabeli
+                    // JOINy są kluczowe, aby pobrać nazwy zamiast samych ID
                     string query = @"
                 SELECT t.*, p.nazwa as wallet_name, k.typ as nazwa_kategorii 
                 FROM transakcje t 
@@ -63,14 +63,24 @@ namespace FinancialManagerApp.ViewModels
                             Transactions.Clear();
                             while (reader.Read())
                             {
+                                // TUTAJ NALEŻY DOKŁADNIE ZMAPOWAĆ POLA
                                 Transactions.Add(new TransactionModel
                                 {
                                     Id = reader.GetInt32("id"),
-                                    WalletName = reader.GetString("wallet_name"),
                                     Date = reader.GetDateTime("data_transakcji"),
+
+                                    // Mapowanie "Nazwa / Opis"
                                     Name = reader.GetString("nazwa"),
-                                    // ZMIANA: Czytamy "nazwa_kategorii", którą wyciągnął JOIN
+
+                                    // Mapowanie "Konto" (używamy aliasu wallet_name z SQL)
+                                    WalletName = reader.GetString("wallet_name"),
+
+                                    // Mapowanie kategorii tekstowej z JOINa
                                     Category = reader.GetString("nazwa_kategorii"),
+
+                                    // Jeśli masz kolumnę tekstową subkategorii w bazie lub robisz to tymczasowo:
+                                    SubCategory = "Brak",
+
                                     Amount = reader.GetDecimal("kwota"),
                                     CheckedTag = reader.GetBoolean("checkedTag")
                                 });
@@ -81,38 +91,37 @@ namespace FinancialManagerApp.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Błąd ładowania: " + ex.Message);
+                MessageBox.Show("Błąd ładowania transakcji: " + ex.Message);
             }
         }
 
         private void ExecuteOpenAddTransaction(object obj)
         {
-            var addTransactionWindow = new AddTransactionView();
-
-            // Ładujemy portfele i przypisujemy do ComboBoxa w oknie
+            var addWindow = new AddTransactionView();
             var userWallets = GetUserWallets();
-            addTransactionWindow.WalletComboBox.ItemsSource = userWallets;
+            addWindow.WalletComboBox.ItemsSource = userWallets;
 
-            if (addTransactionWindow.ShowDialog() == true)
+            if (addWindow.ShowDialog() == true)
             {
+                // 1. Logika znaku kwoty (używamy właściwości z AddTransactionView)
+                decimal finalAmount = addWindow.IsExpense ? -addWindow.TransactionAmount : addWindow.TransactionAmount;
+
                 var newTransaction = new TransactionModel
                 {
-                    WalletId = addTransactionWindow.SelectedWalletId,
-                    // Szukamy nazwy portfela w pobranej wcześniej liście dla widoku
-                    WalletName = userWallets.FirstOrDefault(w => w.Id == addTransactionWindow.SelectedWalletId)?.Name,
-                    Date = addTransactionWindow.SelectedDate,
-                    Name = addTransactionWindow.TransactionName,
-                    Category = addTransactionWindow.SelectedCategory,
-                    SubCategory = addTransactionWindow.SelectedSubCategory,
-                    Amount = addTransactionWindow.TransactionAmount,
-                    CheckedTag = true // Ustawienie flagi zgodnie z dokumentacją 
+                    WalletId = addWindow.SelectedWalletId,
+                    Date = addWindow.SelectedDate,
+                    Name = addWindow.TransactionName,
+                    Amount = finalAmount,
+                    // 2. NAPRAWA: Używamy nazw CategoryId i SubCategoryId (bez "Int")
+                    CategoryId = addWindow.SelectedCategoryId,
+                    SubCategoryId = addWindow.SelectedSubCategoryId,
+                    CheckedTag = true
                 };
 
                 if (SaveTransactionToDatabase(newTransaction))
                 {
-                    // Teraz "Transactions" jest dostępne w tym kontekście
-                    Transactions.Insert(0, newTransaction);
-                    MessageBox.Show("Transakcja dodana pomyślnie!", "Sukces");
+                    LoadTransactionsFromDb();
+                    MessageBox.Show("Transakcja dodana!");
                 }
             }
         }
@@ -127,28 +136,23 @@ namespace FinancialManagerApp.ViewModels
                     try
                     {
                         string insertQuery = @"INSERT INTO transakcje 
-                    (id_portfela, data_transakcji, nazwa, id_kategorii, id_subkategorii, kwota, checkedTag) 
-                    VALUES (@wId, @date, @name, @catId, @subCatId, @amount, @checked)";
+                            (id_portfela, data_transakcji, nazwa, id_kategorii, id_subkategorii, kwota, checkedTag) 
+                            VALUES (@wId, @date, @name, @catId, @subCatId, @amount, @checked)";
 
                         using (var cmd = new MySqlCommand(insertQuery, conn, sqlTrans))
                         {
                             cmd.Parameters.AddWithValue("@wId", transaction.WalletId);
                             cmd.Parameters.AddWithValue("@date", transaction.Date);
                             cmd.Parameters.AddWithValue("@name", transaction.Name);
-
-                            // UWAGA: Twoja baza oczekuje ID (liczb), a nie tekstu.
-                            // Na tym etapie, jeśli nie masz jeszcze tabeli kategorii, 
-                            // możesz przekazać tymczasowo 1 (lub zmapować kategorie na ID).
-                            cmd.Parameters.AddWithValue("@catId", 1); // Tymczasowe ID kategorii
-                            cmd.Parameters.AddWithValue("@subCatId", 1); // Tymczasowe ID subkategorii
-
+                            // NAPRAWA: Pobieramy CategoryId zamiast CategoryIdInt
+                            cmd.Parameters.AddWithValue("@catId", transaction.CategoryId);
+                            cmd.Parameters.AddWithValue("@subCatId", transaction.SubCategoryId);
                             cmd.Parameters.AddWithValue("@amount", transaction.Amount);
-                            cmd.Parameters.AddWithValue("@checked", true);
-
+                            cmd.Parameters.AddWithValue("@checked", transaction.CheckedTag);
                             cmd.ExecuteNonQuery();
                         }
 
-                        // Aktualizacja salda (bez zmian)
+                        // Aktualizacja salda portfela (dodajemy kwotę - jeśli ujemna, saldo spadnie)
                         string updateQuery = "UPDATE portfele SET saldo = saldo + @amount WHERE id = @wId";
                         using (var cmdUpdate = new MySqlCommand(updateQuery, conn, sqlTrans))
                         {

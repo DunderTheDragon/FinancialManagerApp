@@ -11,16 +11,14 @@ namespace FinancialManagerApp.Views
             InitializeComponent();
         }
 
-        // --- ISTNIEJĄCE WŁAŚCIWOŚCI ---
+        // --- WŁAŚCIWOŚCI ---
         public string WalletName => WalletNameBox.Text;
         public bool IsApi => RadioAPI.IsChecked == true;
         public string ApiClientId => ApiClientIdBox.Text;
         public string ApiKey => ApiKeyBox.Text;
         public string InitialBalance => InitialBalanceBox.Text;
-
-        // --- DODAJ TĘ NOWĄ WŁAŚCIWOŚĆ ---
-        // Dzięki temu ViewModel pobierze token z pola tekstowego
         public string RefreshToken => RefreshTokenBox.Text;
+        public string WalletDescription => WalletDescriptionBox.Text;
 
         // --- METODY OBSŁUGI ZDARZEŃ ---
 
@@ -30,7 +28,6 @@ namespace FinancialManagerApp.Views
             this.Close();
         }
 
-        // --- TUTAJ WKLEJ SWOJĄ METODĘ ---
         private async void BtnAutoLogin_Click(object sender, RoutedEventArgs e)
         {
             string clientId = ApiClientIdBox.Text;

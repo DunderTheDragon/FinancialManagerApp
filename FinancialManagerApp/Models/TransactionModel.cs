@@ -4,12 +4,12 @@
     {
         public int Id { get; set; }
         public int WalletId { get; set; }
-        public string WalletName { get; set; } = string.Empty;
+        public string WalletName { get; set; }
         public DateTime Date { get; set; } = DateTime.Now;
-        public string Name { get; set; } = string.Empty;
+        public string Name { get; set; }
         // Właściwości tekstowe (do wyświetlania w tabeli)
-        public string Category { get; set; } = string.Empty;
-        public string SubCategory { get; set; } = string.Empty;
+        public string Category { get; set; }
+        public string SubCategory { get; set; }
 
         // --- DODAJ TE POLA DO ZAPISU DO BAZY ---
         public int CategoryId { get; set; } // Mapuje na id_kategorii

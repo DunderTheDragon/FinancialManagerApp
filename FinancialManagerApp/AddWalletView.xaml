@@ -33,7 +33,7 @@
                     <TextBox x:Name="WalletNameBox" Padding="5" Margin="0,5,0,15" ToolTip="Np. Konto Firmowe Revolut"/>
 
                     <TextBlock Text="Opis" FontSize="11" Foreground="#7F8C8D"/>
-                    <TextBox Padding="5" Margin="0,5,0,0" Height="35" TextWrapping="Wrap"/>
+                    <TextBox x:Name="WalletDescriptionBox" Padding="5" Margin="0,5,0,0" Height="35" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 

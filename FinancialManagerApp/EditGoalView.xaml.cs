@@ -1,22 +1,39 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using FinancialManagerApp.Models;
 
 namespace FinancialManagerApp.Views
 {
+    // Musi być public partial class i dziedziczyć po Window
     public partial class EditGoalView : Window
     {
-        public EditGoalView() { InitializeComponent(); }
+        public EditGoalView(SavingsGoalModel goal)
+        {
+            InitializeComponent(); // To połączy C# z XAML
+            this.DataContext = goal;
+
+            // Ustawienie wyboru w ComboBox na podstawie danych modelu
+            if (goal.ContributionType == "procent")
+            {
+                TypeCombo.SelectedIndex = 1;
+            }
+            else
+            {
+                TypeCombo.SelectedIndex = 0;
+            }
+        }
+
+        // Brakująca metoda obsługująca kliknięcie przycisku Zapisz
+        private void BtnSave_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(GoalNameBox.Text))
+            {
+                MessageBox.Show("Nazwa celu nie może być pusta!");
+                return;
+            }
+
+            this.DialogResult = true;
+            this.Close();
+        }
     }
 }

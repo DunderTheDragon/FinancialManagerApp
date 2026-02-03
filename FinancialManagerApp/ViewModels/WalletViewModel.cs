@@ -21,6 +21,8 @@ namespace FinancialManagerApp.ViewModels
         public ObservableCollection<WalletModel> Wallets { get; set; }
         public ICommand OpenAddWalletCommand { get; }
         public ICommand RefreshWalletCommand { get; }
+        public ICommand OpenEditWalletCommand { get; }
+        public ICommand DeleteWalletCommand { get; }
 
         private readonly RevolutService _revolutService;
         private readonly TransactionSyncService _syncService;
@@ -37,6 +39,8 @@ namespace FinancialManagerApp.ViewModels
 
             OpenAddWalletCommand = new RelayCommand(ExecuteOpenAddWallet);
             RefreshWalletCommand = new RelayCommand(ExecuteRefreshWallet);
+            OpenEditWalletCommand = new RelayCommand(ExecuteOpenEditWallet);
+            DeleteWalletCommand = new RelayCommand(ExecuteDeleteWallet);
 
             // Ładujemy portfele użytkownika zaraz po stworzeniu ViewModelu
             LoadWalletsFromDb();
@@ -46,6 +50,105 @@ namespace FinancialManagerApp.ViewModels
         public void RefreshData()
         {
             LoadWalletsFromDb();
+        }
+
+        private void ExecuteOpenEditWallet(object obj)
+        {
+            if (obj is WalletModel selectedWallet)
+            {
+                // Tworzymy okno i przekazujemy mu zaznaczony portfel
+                var editWindow = new EditWalletView(selectedWallet);
+
+                if (editWindow.ShowDialog() == true)
+                {
+                    // Pobieramy zmodyfikowane dane z okna
+                    var updatedWallet = editWindow.EditedWallet;
+
+                    if (UpdateWalletInDatabase(updatedWallet))
+                    {
+                        LoadWalletsFromDb(); // Odświeżamy listę z bazy po udanej edycji
+                        MessageBox.Show("Zmiany zostały zapisane pomyślnie!", "Sukces");
+                    }
+                }
+            }
+        }
+
+        // Metoda zapisu zmian w bazie MySQL
+        private bool UpdateWalletInDatabase(WalletModel wallet)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = "UPDATE portfele SET nazwa = @name, opis = @desc, saldo = @balance WHERE id = @id";
+
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@name", wallet.Name);
+                        cmd.Parameters.AddWithValue("@desc", wallet.Description);
+                        cmd.Parameters.AddWithValue("@balance", wallet.Balance);
+                        cmd.Parameters.AddWithValue("@id", wallet.Id);
+
+                        cmd.ExecuteNonQuery();
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Błąd aktualizacji bazy danych: " + ex.Message, "Błąd");
+                return false;
+            }
+        }
+
+        // Usuwanie portfelu
+        private void ExecuteDeleteWallet(object obj)
+        {
+            if (obj is WalletModel selectedWallet)
+            {
+                // Wyświetlamy ostrzeżenie przed skasowaniem danych
+                var result = MessageBox.Show(
+                    $"Czy na pewno chcesz bezpowrotnie usunąć portfel '{selectedWallet.Name}'? \n\n" +
+                    "UWAGA: Spowoduje to również usunięcie całej historii transakcji dla tego portfela!",
+                    "Potwierdzenie usunięcia",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    if (DeleteWalletFromDb(selectedWallet.Id))
+                    {
+                        // Usuwamy z widoku tylko jeśli baza danych potwierdziła sukces
+                        Wallets.Remove(selectedWallet);
+                        MessageBox.Show("Portfel został pomyślnie usunięty.");
+                    }
+                }
+            }
+        }
+
+        private bool DeleteWalletFromDb(int walletId)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    // Zapytanie SQL usuwające konkretny rekord po ID
+                    string query = "DELETE FROM portfele WHERE id = @id";
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@id", walletId);
+                        cmd.ExecuteNonQuery();
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Błąd podczas usuwania portfela z bazy: " + ex.Message, "Błąd");
+                return false;
+            }
         }
 
         // Metoda pobierająca portfele z bazy danych
@@ -69,6 +172,7 @@ namespace FinancialManagerApp.ViewModels
                                 Wallets.Add(new WalletModel
                                 {
                                     // Pamiętaj o dodaniu Id do WalletModel, jeśli go jeszcze nie ma
+                                    Id = reader.GetInt32("id"),
                                     Name = reader.GetString("nazwa"),
                                     Type = reader.GetString("typ"),
                                     Description = reader.IsDBNull(reader.GetOrdinal("opis")) ? "" : reader.GetString("opis"),
@@ -89,12 +193,10 @@ namespace FinancialManagerApp.ViewModels
         {
             var addWalletWindow = new AddWalletView();
 
-            // Wyświetl okno i czekaj na wynik
-            bool? result = addWalletWindow.ShowDialog();
-
-            if (result == true)
+            if (addWalletWindow.ShowDialog() == true)
             {
-                // Użytkownik kliknął "Utwórz"
+                // Pobieramy opis wpisany przez użytkownika
+                string userDescription = addWalletWindow.WalletDescription;
 
                 if (addWalletWindow.IsApi) // Wybrano REVOLUT
                 {
@@ -102,26 +204,32 @@ namespace FinancialManagerApp.ViewModels
                     {
                         var clientId = addWalletWindow.ApiClientId;
                         var privateKey = addWalletWindow.ApiKey;
-                        var refreshToken = addWalletWindow.RefreshToken; // <-- POBIERZ TOKEN
+                        var refreshToken = addWalletWindow.RefreshToken;
 
-                        // Wywołanie serwisu
                         var accounts = await _revolutService.GetAccountsAsync(clientId, privateKey, refreshToken);
 
                         foreach (var acc in accounts)
                         {
-                            Wallets.Add(new WalletModel
+                            var apiWallet = new WalletModel
                             {
                                 Name = acc.Name,
                                 Type = "API",
+                                Description = userDescription, // Ustawiamy opis wpisany w oknie
                                 Balance = acc.Balance,
                                 RevolutClientId = clientId,
                                 RevolutPrivateKey = privateKey,
-                                RevolutRefreshToken = refreshToken, // <-- ZAPISZ TOKEN DO MODELU
+                                RevolutRefreshToken = refreshToken,
                                 RevolutAccountId = acc.Id
-                            });
+                            };
+
+                            // Zapisujemy każde konto API do bazy, aby opis trafił do MySQL
+                            if (SaveWalletToDb(apiWallet))
+                            {
+                                Wallets.Add(apiWallet);
+                            }
                         }
 
-                        MessageBox.Show($"Pobrano {accounts.Count} kont z Revolut!", "Sukces");
+                        MessageBox.Show($"Pobrano i zapisano {accounts.Count} kont z Revolut!", "Sukces");
                     }
                     catch (Exception ex)
                     {
@@ -136,11 +244,10 @@ namespace FinancialManagerApp.ViewModels
                         {
                             Name = addWalletWindow.WalletName,
                             Type = "Manualny",
-                            Description = "Portfel lokalny",
+                            Description = userDescription, // Pobieramy opis z okna zamiast "Portfel lokalny"
                             Balance = balance
                         };
 
-                        // ZAPIS DO BAZY
                         if (SaveWalletToDb(newWallet))
                         {
                             Wallets.Add(newWallet);
@@ -196,6 +303,8 @@ namespace FinancialManagerApp.ViewModels
                 }
             }
         }
+
+
 
         // Automatyczna synchronizacja:
         private void StartAutoSync()

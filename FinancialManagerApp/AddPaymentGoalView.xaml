@@ -5,19 +5,22 @@
     <Grid Margin="20">
         <StackPanel>
             <TextBlock Text="Zasilanie skarbonki" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+
             <TextBlock Text="Wybierz portfel źródłowy:" FontSize="12" Foreground="#7F8C8D"/>
-            <ComboBox Margin="0,5,0,15" Padding="5" ItemsSource="{Binding UserWallets}" DisplayMemberPath="Name"/>
+            <ComboBox x:Name="WalletCombo" Margin="0,5,0,15" Padding="5" 
+                      ItemsSource="{Binding UserWallets}" DisplayMemberPath="Name"/>
 
             <TextBlock Text="Kwota wpłaty (zł):" FontSize="12" Foreground="#7F8C8D"/>
-            <TextBox Margin="0,5,0,20" Padding="8" FontSize="16" FontWeight="Bold"/>
+            <TextBox x:Name="AmountBox" Margin="0,5,0,20" Padding="8" FontSize="16" FontWeight="Bold"/>
 
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Content="Anuluj" Margin="0,0,5,0" Padding="10"/>
-                <Button Grid.Column="1" Content="Wpłać" Background="#1ABC9C" Foreground="White" Padding="10" FontWeight="Bold"/>
+                <Button Grid.Column="0" Content="Anuluj" IsCancel="True" Margin="0,0,5,0" Padding="10"/>
+                <Button Grid.Column="1" Content="Wpłać" Click="BtnDeposit_Click"
+                        Background="#1ABC9C" Foreground="White" Padding="10" FontWeight="Bold"/>
             </Grid>
         </StackPanel>
     </Grid>

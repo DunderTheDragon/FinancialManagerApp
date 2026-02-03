@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
              mc:Ignorable="d" 
              d:DesignHeight="800" d:DesignWidth="1000">
     <Grid Background="#ECF0F1">
@@ -27,18 +28,25 @@
                         <StackPanel>
                             <DockPanel Margin="0,0,0,15">
                                 <TextBlock Text="Wydatki wg kategorii" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                                <ComboBox HorizontalAlignment="Right" Width="180" SelectedIndex="0" Padding="5">
-                                    <ComboBoxItem Content="Wszystkie portfele"/>
-                                    <ComboBoxItem Content="Portfel Gotówkowy"/>
-                                    <ComboBoxItem Content="Konto Revolut"/>
+                                <ComboBox HorizontalAlignment="Right" Width="180" Padding="5"
+                          ItemsSource="{Binding AvailableWallets}"
+                          SelectedItem="{Binding SelectedWalletForChart}"
+                          DisplayMemberPath="Name">
                                 </ComboBox>
                             </DockPanel>
 
-                            <Border Height="200" Background="#F9F9F9" BorderBrush="#EEEEEE" BorderThickness="1" CornerRadius="5">
-                                <TextBlock Text="[Tu pojawi się wizualizacja wydatków z ostatnich miesięcy]" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#BDC3C7"/>
+                            <Border Height="250" Background="Transparent">
+                                <lvc:CartesianChart Series="{Binding BarSeriesCollection}" LegendLocation="Bottom">
+                                    <lvc:CartesianChart.AxisX>
+                                        <lvc:Axis Title="Miesiące" Labels="{Binding BarLabels}"></lvc:Axis>
+                                    </lvc:CartesianChart.AxisX>
+                                    <lvc:CartesianChart.AxisY>
+                                        <lvc:Axis Title="Kwota (zł)" LabelFormatter="{Binding YFormatter}"></lvc:Axis>
+                                    </lvc:CartesianChart.AxisY>
+                                </lvc:CartesianChart>
                             </Border>
 
-                            <TextBlock Text="Średnia z ostatnich 12 miesięcy: 2 450,00 zł" Margin="0,10,0,0" FontSize="11" Foreground="#7F8C8D" FontStyle="Italic"/>
+                            <TextBlock Text="{Binding AverageSpendingText}" Margin="0,10,0,0" FontSize="11" Foreground="#7F8C8D" FontStyle="Italic"/>
                         </StackPanel>
                     </Border>
 
@@ -46,23 +54,29 @@
                         <StackPanel>
                             <TextBlock Text="Udział wydatków" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
 
-                            <ComboBox Margin="0,0,0,15" SelectedIndex="0" Padding="5">
-                                <ComboBoxItem Content="Kategoryzacja podstawowa"/>
-                                <ComboBoxItem Content="Kategoryzacja zaawansowana"/>
+                            <ComboBox Margin="0,0,0,15" SelectedIndex="0" Padding="5"
+                      SelectedValue="{Binding SelectedCategorizationType}"
+                      SelectedValuePath="Content">
+                                <ComboBoxItem Content="Podstawowa"/>
+                                <ComboBoxItem Content="Zaawansowana"/>
                             </ComboBox>
 
-                            <Grid HorizontalAlignment="Center">
-                                <Border Height="180" Width="180" CornerRadius="90" BorderBrush="#1ABC9C" BorderThickness="12">
-                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                        <TextBlock Text="85%" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#2C3E50"/>
-                                        <TextBlock Text="planu" FontSize="12" Foreground="#7F8C8D" HorizontalAlignment="Center"/>
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-
-                            <Border Background="#F4F6F6" Margin="0,15,0,0" Padding="10" CornerRadius="5">
-                                <TextBlock Text="Zaoszczędzono: +150,00 zł vs cel" Foreground="#27AE60" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <Border Height="200">
+                                <lvc:PieChart Series="{Binding PieSeriesCollection}" 
+                              LegendLocation="Right" 
+                              InnerRadius="40" 
+                              Hoverable="True">
+                                </lvc:PieChart>
                             </Border>
+
+                            <StackPanel Margin="0,15,0,0">
+                                <Border Background="#F4F6F6" Padding="8" CornerRadius="5" Margin="0,0,0,5">
+                                    <TextBlock Text="{Binding ComparisonToPlanText}" Foreground="#27AE60" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                </Border>
+                                <Border Background="#F4F6F6" Padding="8" CornerRadius="5">
+                                    <TextBlock Text="{Binding ComparisonToAverageText}" Foreground="#3498DB" FontSize="10" HorizontalAlignment="Center"/>
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </Grid>
