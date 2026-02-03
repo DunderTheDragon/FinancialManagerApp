@@ -44,26 +44,22 @@
 
                 <Border Background="White" CornerRadius="8" Padding="15" Margin="0,0,2,0" BorderBrush="#D5DBDB" BorderThickness="1">
                     <StackPanel>
-                        <CheckBox x:Name="IsRecurringCheck" Content="Wpłaty cykliczne" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <CheckBox x:Name="IsRecurringCheck" Content="Automatyczne oszczędzanie (%)" FontWeight="SemiBold" Margin="0,0,0,10"/>
 
                         <StackPanel IsEnabled="{Binding IsChecked, ElementName=IsRecurringCheck}">
                             <TextBlock Text="Portfel źródłowy" FontSize="11" Foreground="#7F8C8D" Margin="0,0,0,5"/>
                             <ComboBox x:Name="SourceWalletCombo" 
-                                      ItemsSource="{Binding AvailableWallets}" 
-                                      DisplayMemberPath="Name" 
-                                      SelectedValuePath="Id" 
-                                      SelectedIndex="0" 
-                                      Margin="0,0,0,10" 
-                                      FontWeight="SemiBold"/>
+                      ItemsSource="{Binding AvailableWallets}" 
+                      DisplayMemberPath="Name" 
+                      SelectedValuePath="Id" 
+                      SelectedIndex="0" 
+                      Margin="0,0,0,10" 
+                      FontWeight="SemiBold"/>
 
-                            <TextBlock Text="Typ pobrania" FontSize="11" Foreground="#7F8C8D"/>
-                            <ComboBox x:Name="TypeCombo" SelectedIndex="0" Margin="0,5,0,10">
-                                <ComboBoxItem Content="kwota"/>
-                                <ComboBoxItem Content="procent"/>
-                            </ComboBox>
-
-                            <TextBlock Text="Wartość (PLN lub %)" FontSize="11" Foreground="#7F8C8D"/>
-                            <TextBox x:Name="ValueBox" Text="0" Padding="5"/>
+                            <TextBlock Text="Procent od każdego wpływu (%)" FontSize="11" Foreground="#7F8C8D"/>
+                            <TextBox x:Name="ValueBox" Text="0" Padding="5" ToolTip="Wpisz wartość od 1 do 100"/>
+                            <TextBlock Text="Pieniądze będą automatycznie pobierane przy każdym przychodzie na wybrany portfel." 
+                       FontSize="10" Foreground="#95A5A6" TextWrapping="Wrap" Margin="0,5,0,0" FontStyle="Italic"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

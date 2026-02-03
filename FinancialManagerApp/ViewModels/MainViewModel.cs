@@ -24,8 +24,11 @@ namespace FinancialManagerApp.ViewModels
         public SettingsViewModel SettingsVM { get; set; }
 
         // Komendy nawigacji
+        // Komendy nawigacji
         public RelayCommand NavigateToDashboardCommand { get; set; }
         public RelayCommand NavigateToTransactionsCommand { get; set; }
+        // DODAJ TO: Ta nazwa musi się zgadzać z bindowaniem w DashboardView.xaml
+        public RelayCommand ViewTransactionsCommand { get; set; }
         public RelayCommand NavigateToWalletsCommand { get; set; }
         public RelayCommand NavigateToGoalsCommand { get; set; }
         public RelayCommand NavigateToSettingsCommand { get; set; }
@@ -40,25 +43,31 @@ namespace FinancialManagerApp.ViewModels
             GoalsVM = new GoalsViewModel(CurrentUser);
             SettingsVM = new SettingsViewModel();
 
-            // Domyślny widok przy starcie
             CurrentView = DashboardVM;
 
-            // Przypisanie logiki do przycisków menu
-
-            // Odświeża dane w Dashboardzie
+            // Przypisanie logiki nawigacji
             NavigateToDashboardCommand = new RelayCommand(o =>
             {
-                DashboardVM.RefreshData(); // 1. Najpierw pobierz świeże dane z bazy
-                CurrentView = DashboardVM; // 2. Potem pokaż widok
+                DashboardVM.RefreshData();
+                CurrentView = DashboardVM;
             });
+
+            // To jest główna komenda nawigacji z menu
             NavigateToTransactionsCommand = new RelayCommand(o => { CurrentView = TransactionsVM; });
 
-            // Odświeża dane w Portfelach
+            // DODAJ TO: To jest komenda, której szuka Twój przycisk "Zobacz wszystkie transakcje"
+            ViewTransactionsCommand = new RelayCommand(o =>
+            {
+                // Opcjonalnie: możesz tu dodać TransactionsVM.RefreshData(), jeśli chcesz świeżej listy
+                CurrentView = TransactionsVM;
+            });
+
             NavigateToWalletsCommand = new RelayCommand(o =>
             {
                 WalletsVM.RefreshData();
                 CurrentView = WalletsVM;
             });
+
             NavigateToGoalsCommand = new RelayCommand(o => { CurrentView = GoalsVM; });
             NavigateToSettingsCommand = new RelayCommand(o => { CurrentView = SettingsVM; });
         }

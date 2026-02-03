@@ -140,30 +140,36 @@ namespace FinancialManagerApp.ViewModels
                 {
                     try
                     {
+                        // 1. Wstawienie głównej transakcji
                         string insertQuery = @"INSERT INTO transakcje 
-                            (id_portfela, data_transakcji, nazwa, id_kategorii, id_subkategorii, kwota, checkedTag) 
-                            VALUES (@wId, @date, @name, @catId, @subCatId, @amount, @checked)";
+                    (id_portfela, data_transakcji, nazwa, id_kategorii, id_subkategorii, kwota, checkedTag) 
+                    VALUES (@wId, @date, @name, @catId, @subCatId, @amount, @checked)";
 
                         using (var cmd = new MySqlCommand(insertQuery, conn, sqlTrans))
                         {
                             cmd.Parameters.AddWithValue("@wId", transaction.WalletId);
                             cmd.Parameters.AddWithValue("@date", transaction.Date);
                             cmd.Parameters.AddWithValue("@name", transaction.Name);
-                            // NAPRAWA: Pobieramy CategoryId zamiast CategoryIdInt
                             cmd.Parameters.AddWithValue("@catId", transaction.CategoryId);
                             cmd.Parameters.AddWithValue("@subCatId", transaction.SubCategoryId);
                             cmd.Parameters.AddWithValue("@amount", transaction.Amount);
                             cmd.Parameters.AddWithValue("@checked", transaction.CheckedTag);
-                            cmd.ExecuteNonQuery();
+                            cmd.ExecuteNonQuery(); // <-- TUTAJ BYŁ BŁĄD, poprawiono na ExecuteNonQuery
                         }
 
-                        // Aktualizacja salda portfela (dodajemy kwotę - jeśli ujemna, saldo spadnie)
+                        // 2. Aktualizacja salda portfela głównego
                         string updateQuery = "UPDATE portfele SET saldo = saldo + @amount WHERE id = @wId";
                         using (var cmdUpdate = new MySqlCommand(updateQuery, conn, sqlTrans))
                         {
                             cmdUpdate.Parameters.AddWithValue("@amount", transaction.Amount);
                             cmdUpdate.Parameters.AddWithValue("@wId", transaction.WalletId);
-                            cmdUpdate.ExecuteNonQuery();
+                            cmdUpdate.ExecuteNonQuery(); // <-- TUTAJ RÓWNIEŻ poprawiono
+                        }
+
+                        // 3. LOGIKA AUTO-OSZCZĘDZANIA (Wywoływana tylko dla wpływów)
+                        if (transaction.Amount > 0)
+                        {
+                            HandleAutoSavings(conn, sqlTrans, transaction.WalletId, transaction.Amount);
                         }
 
                         sqlTrans.Commit();
@@ -172,8 +178,78 @@ namespace FinancialManagerApp.ViewModels
                     catch (Exception ex)
                     {
                         sqlTrans.Rollback();
-                        MessageBox.Show("Błąd zapisu: " + ex.Message);
+                        MessageBox.Show("Błąd zapisu i auto-oszczędzania: " + ex.Message);
                         return false;
+                    }
+                }
+            }
+        }
+
+        private void HandleAutoSavings(MySqlConnection conn, MySqlTransaction sqlTrans, int walletId, decimal incomeAmount)
+        {
+            // 1. Pobierz aktywne reguły dla tego portfela
+            string getRulesQuery = @"SELECT id, nazwa, typ_pobrania, wartosc_pobrania 
+                             FROM skarbonki 
+                             WHERE id_portfela_zrodlowego = @wId AND cykliczne = 1";
+
+            var activeRules = new List<dynamic>();
+            using (var cmd = new MySqlCommand(getRulesQuery, conn, sqlTrans))
+            {
+                cmd.Parameters.AddWithValue("@wId", walletId);
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        activeRules.Add(new
+                        {
+                            Id = reader.GetInt32("id"),
+                            Name = reader.GetString("nazwa"),
+                            Type = reader.GetString("typ_pobrania"),
+                            Value = reader.GetDecimal("wartosc_pobrania")
+                        });
+                    }
+                }
+            }
+
+            // 2. Dla każdej reguły oblicz kwotę i wykonaj transfer
+            foreach (var rule in activeRules)
+            {
+                decimal amountToSave = 0;
+                if (rule.Type == "procent")
+                    amountToSave = incomeAmount * (rule.Value / 100);
+                else
+                    amountToSave = rule.Value;
+
+                if (amountToSave > 0)
+                {
+                    // A. Odejmij z portfela (zmniejsz saldo o kwotę oszczędności)
+                    string subWallet = "UPDATE portfele SET saldo = saldo - @amt WHERE id = @wid";
+                    using (var cmd = new MySqlCommand(subWallet, conn, sqlTrans))
+                    {
+                        cmd.Parameters.AddWithValue("@amt", amountToSave);
+                        cmd.Parameters.AddWithValue("@wid", walletId);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    // B. Dodaj do skarbonki
+                    string addGoal = "UPDATE skarbonki SET kwota_aktualna = kwota_aktualna + @amt WHERE id = @gid";
+                    using (var cmd = new MySqlCommand(addGoal, conn, sqlTrans))
+                    {
+                        cmd.Parameters.AddWithValue("@amt", amountToSave);
+                        cmd.Parameters.AddWithValue("@gid", rule.Id);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    // C. Zaloguj transakcję jako "OSZCZĘDNOŚCI - SKARBONKI" (Kategoria 3)
+                    // Dzięki temu wykres kołowy, który wcześniej robiliśmy, od razu to pokaże!
+                    string logTrans = @"INSERT INTO transakcje (id_portfela, id_kategorii, kwota, nazwa, data_transakcji, checkedTag) 
+                                VALUES (@wid, 3, @amtNeg, @desc, NOW(), 1)";
+                    using (var cmd = new MySqlCommand(logTrans, conn, sqlTrans))
+                    {
+                        cmd.Parameters.AddWithValue("@wid", walletId);
+                        cmd.Parameters.AddWithValue("@amtNeg", -amountToSave); // Kwota ujemna, bo zabieramy z portfela
+                        cmd.Parameters.AddWithValue("@desc", $"AUTO-OSZCZĘDZANIE: {rule.Name.ToUpper()}");
+                        cmd.ExecuteNonQuery();
                     }
                 }
             }

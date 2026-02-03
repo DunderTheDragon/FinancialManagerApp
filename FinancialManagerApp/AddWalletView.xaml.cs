@@ -9,6 +9,7 @@ namespace FinancialManagerApp.Views
         public AddWalletView()
         {
             InitializeComponent();
+            this.MaxHeight = SystemParameters.WorkArea.Height * 0.9;
         }
 
         // --- WŁAŚCIWOŚCI ---

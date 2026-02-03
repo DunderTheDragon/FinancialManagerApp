@@ -117,10 +117,7 @@ namespace FinancialManagerApp.ViewModels
 
         private void ExecuteOpenAddGoal(object obj)
         {
-            // Pobieramy listę portfeli (załóżmy, że masz do niej dostęp lub przekaż ją z MainViewModel)
-            // Jeśli nie masz listy pod ręką, możesz ją pobrać z bazy przed otwarciem okna
             var wallets = GetUserWallets();
-
             var addWindow = new AddGoalView(wallets);
             addWindow.Owner = Application.Current.MainWindow;
 
@@ -132,15 +129,15 @@ namespace FinancialManagerApp.ViewModels
                     TargetAmount = addWindow.TargetAmount,
                     CurrentAmount = addWindow.CurrentAmount,
                     IsRecurring = addWindow.IsRecurring,
-                    ContributionType = addWindow.RecurringType,
+                    ContributionType = addWindow.RecurringType, // "kwota" lub "procent"
                     ContributionValue = addWindow.RecurringValue,
-                    SourceWalletId = addWindow.SelectedWalletId // NOWE POLE
+                    SourceWalletId = addWindow.SelectedWalletId
                 };
 
                 if (SaveGoalToDb(newGoal))
                 {
                     LoadGoalsFromDb();
-                    MessageBox.Show("Skarbonka utworzona poprawnie!");
+                    MessageBox.Show("Skarbonka utworzona! Od teraz wpłaty na wybrany portfel będą automatycznie zasilać ten cel.");
                 }
             }
         }
