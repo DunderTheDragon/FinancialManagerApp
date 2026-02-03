@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Collections.Generic;
 
 namespace FinancialManagerApp.ViewModels
 {
@@ -23,6 +24,7 @@ namespace FinancialManagerApp.ViewModels
         public ICommand RefreshWalletCommand { get; }
         public ICommand OpenEditWalletCommand { get; }
         public ICommand DeleteWalletCommand { get; }
+        public ICommand ImportTransactionsCommand { get; }
 
         private readonly RevolutService _revolutService;
         private readonly TransactionSyncService _syncService;
@@ -41,6 +43,7 @@ namespace FinancialManagerApp.ViewModels
             RefreshWalletCommand = new RelayCommand(ExecuteRefreshWallet);
             OpenEditWalletCommand = new RelayCommand(ExecuteOpenEditWallet);
             DeleteWalletCommand = new RelayCommand(ExecuteDeleteWallet);
+            ImportTransactionsCommand = new RelayCommand(ExecuteImportTransactions);
 
             // Ładujemy portfele użytkownika zaraz po stworzeniu ViewModelu
             LoadWalletsFromDb();
@@ -169,12 +172,19 @@ namespace FinancialManagerApp.ViewModels
                             Wallets.Clear();
                             while (reader.Read())
                             {
+                                var walletType = reader.GetString("typ");
+                                // Normalizuj typ z bazy (może być "manualny" lub "api") do formatu "Manualny" lub "API"
+                                if (walletType.Equals("manualny", StringComparison.OrdinalIgnoreCase))
+                                    walletType = "Manualny";
+                                else if (walletType.Equals("api", StringComparison.OrdinalIgnoreCase))
+                                    walletType = "API";
+
                                 Wallets.Add(new WalletModel
                                 {
                                     // Pamiętaj o dodaniu Id do WalletModel, jeśli go jeszcze nie ma
                                     Id = reader.GetInt32("id"),
                                     Name = reader.GetString("nazwa"),
-                                    Type = reader.GetString("typ"),
+                                    Type = walletType,
                                     Description = reader.IsDBNull(reader.GetOrdinal("opis")) ? "" : reader.GetString("opis"),
                                     Balance = reader.GetDecimal("saldo")
                                 });
@@ -331,6 +341,61 @@ namespace FinancialManagerApp.ViewModels
                     // Logowanie błędu bez przerywania synchronizacji innych portfeli
                     System.Diagnostics.Debug.WriteLine($"Błąd synchronizacji dla {wallet.Name}: {ex.Message}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Otwiera dialog importu transakcji z pliku CSV
+        /// </summary>
+        private void ExecuteImportTransactions(object obj)
+        {
+            if (obj is not WalletModel wallet || wallet.Type != "Manualny")
+            {
+                MessageBox.Show("Import transakcji jest dostępny tylko dla portfeli manualnych.", "Informacja", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            try
+            {
+                // Otwórz dialog wyboru pliku CSV
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "Pliki CSV (*.csv)|*.csv|Wszystkie pliki (*.*)|*.*",
+                    Title = "Wybierz plik CSV do importu"
+                };
+
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    // Parsuj plik CSV
+                    var csvService = new Services.CsvImportService();
+                    var importedTransactions = csvService.ParseCsvFile(openFileDialog.FileName);
+
+                    if (importedTransactions.Count == 0)
+                    {
+                        MessageBox.Show("Nie znaleziono transakcji w pliku CSV.", "Informacja", MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
+
+                    // Konwertuj na ObservableCollection
+                    var transactionsCollection = new System.Collections.ObjectModel.ObservableCollection<Models.ImportedTransactionModel>(importedTransactions);
+
+                    // Utwórz ViewModel i okno importu
+                    var importViewModel = new ViewModels.ImportTransactionsViewModel(CurrentUser, wallet.Id, transactionsCollection);
+                    var importWindow = new Views.ImportTransactionsView(importViewModel);
+                    importWindow.Owner = Application.Current.MainWindow;
+
+                    // Otwórz okno
+                    if (importWindow.ShowDialog() == true)
+                    {
+                        // Odśwież listę portfeli (saldo mogło się zmienić)
+                        LoadWalletsFromDb();
+                        MessageBox.Show("Transakcje zostały pomyślnie zaimportowane!", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Błąd importu transakcji: {ex.Message}", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

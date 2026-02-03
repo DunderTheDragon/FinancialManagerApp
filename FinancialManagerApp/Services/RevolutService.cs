@@ -19,7 +19,7 @@ namespace FinancialManagerApp.Services
         private const string API_URL = "https://sandbox-b2b.revolut.com/api/1.0";
         private const string TOKEN_ENDPOINT = "https://sandbox-b2b.revolut.com/api/1.0/auth/token";
 
-        private const string JWT_AUDIENCE = "revolut";
+        private const string JWT_AUDIENCE = "https://revolut.com";
 
         // Twoja domena podana w panelu Revolut (Redirect URI)
         private const string JWT_ISSUER = "www.google.com";
@@ -39,14 +39,17 @@ namespace FinancialManagerApp.Services
             string clientAssertion = GenerateJwt(clientId, privateKeyPem);
 
             // 2. Budujemy zapytanie o wymianę kodu na tokeny
+            // WAŻNE: Dodajemy redirect_uri, który musi być identyczny z tym użytym w żądaniu autoryzacji
+            const string redirectUri = "https://www.google.com/";
             var requestBody = new List<KeyValuePair<string, string>>
-    {
-        new KeyValuePair<string, string>("grant_type", "authorization_code"),
-        new KeyValuePair<string, string>("code", authCode),
-        new KeyValuePair<string, string>("client_id", clientId),
-        new KeyValuePair<string, string>("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"),
-        new KeyValuePair<string, string>("client_assertion", clientAssertion)
-    };
+            {
+                new KeyValuePair<string, string>("grant_type", "authorization_code"),
+                new KeyValuePair<string, string>("code", authCode),
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("redirect_uri", redirectUri),
+                new KeyValuePair<string, string>("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"),
+                new KeyValuePair<string, string>("client_assertion", clientAssertion)
+            };
 
             var request = new HttpRequestMessage(HttpMethod.Post, TOKEN_ENDPOINT)
             {
@@ -56,9 +59,23 @@ namespace FinancialManagerApp.Services
             var response = await _httpClient.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
 
+            // Logowanie dla debugowania
+            System.Diagnostics.Debug.WriteLine($"Token Exchange Response Status: {response.StatusCode}");
+            System.Diagnostics.Debug.WriteLine($"Token Exchange Response: {responseContent}");
+
             if (!response.IsSuccessStatusCode)
             {
-                throw new Exception($"Błąd wymiany kodu na token: {responseContent}");
+                // Próbujemy sparsować błąd jako JSON dla lepszego komunikatu
+                try
+                {
+                    dynamic errorResponse = JsonConvert.DeserializeObject(responseContent);
+                    string errorMessage = errorResponse?.error_description ?? errorResponse?.message ?? errorResponse?.error ?? responseContent;
+                    throw new Exception($"Błąd wymiany kodu na token: {errorMessage}");
+                }
+                catch
+                {
+                    throw new Exception($"Błąd wymiany kodu na token: {responseContent}");
+                }
             }
 
             dynamic tokenResponse = JsonConvert.DeserializeObject(responseContent);
@@ -142,18 +159,13 @@ namespace FinancialManagerApp.Services
                 .Replace("\r", "")
                 .Trim();
 
-            using (var rsa = RSA.Create())
+            RSA rsa = RSA.Create();
+            try
             {
-                try
-                {
-                    rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(cleanKey), out _);
-                }
-                catch
-                {
-                    // Fallback jeśli format jest inny
-                    throw new Exception("Nieprawidłowy format klucza prywatnego. Upewnij się, że to format PKCS#8 Base64.");
-                }
-
+                rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(cleanKey), out _);
+                
+                // WAŻNE: RsaSecurityKey przejmuje własność RSA, więc nie używamy using
+                // RsaSecurityKey będzie odpowiedzialny za dispose RSA
                 var securityKey = new RsaSecurityKey(rsa);
                 var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.RsaSha256);
 
@@ -169,7 +181,21 @@ namespace FinancialManagerApp.Services
                 };
 
                 var secToken = new JwtSecurityToken(header, payload);
-                return new JwtSecurityTokenHandler().WriteToken(secToken);
+                string token = new JwtSecurityTokenHandler().WriteToken(secToken);
+                
+                // RsaSecurityKey przejmuje własność, więc nie usuwamy RSA tutaj
+                return token;
+            }
+            catch (Exception ex) when (!(ex is FormatException))
+            {
+                // Jeśli to nie błąd formatu, zwalniamy zasoby
+                rsa?.Dispose();
+                throw new Exception("Nieprawidłowy format klucza prywatnego. Upewnij się, że to format PKCS#8 Base64.", ex);
+            }
+            catch
+            {
+                rsa?.Dispose();
+                throw new Exception("Nieprawidłowy format klucza prywatnego. Upewnij się, że to format PKCS#8 Base64.");
             }
         }
     }

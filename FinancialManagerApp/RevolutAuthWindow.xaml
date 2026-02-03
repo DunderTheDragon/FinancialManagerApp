@@ -4,6 +4,11 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Logowanie Revolut" Height="600" Width="500" WindowStartupLocation="CenterScreen">
     <Grid>
-        <wv2:WebView2 x:Name="webView" NavigationStarting="WebView_NavigationStarting"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <wv2:WebView2 x:Name="webView" NavigationStarting="WebView_NavigationStarting" NavigationCompleted="WebView_NavigationCompleted" Grid.Row="0"/>
+        <Button Content="Anuluj" Click="BtnCancel_Click" Margin="10" Padding="10,5" Grid.Row="1" HorizontalAlignment="Right"/>
     </Grid>
 </Window>
