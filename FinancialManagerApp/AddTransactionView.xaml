@@ -47,7 +47,7 @@
                     </Grid>
 
                     <TextBlock Text="Nazwa transakcji" FontSize="11" Foreground="#7F8C8D" Margin="0,5,0,0"/>
-                    <TextBox x:Name="TransactionNameBox" Padding="5" Margin="0,5,0,10" ToolTip="Krótka nazwa, np. Biedronka"/>
+                    <TextBox x:Name="TransactionNameBox" Padding="5" Margin="0,5,0,10" ToolTip="Krótka nazwa, np. Biedronka" LostFocus="TransactionNameBox_LostFocus"/>
 
                     <TextBlock Text="Opis (Szczegóły)" FontSize="11" Foreground="#7F8C8D" Margin="0,0,0,0"/>
                     <TextBox x:Name="DescriptionBox" Padding="5" Margin="0,5,0,0" Height="40" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" ToolTip="Dodatkowy opis"/>
@@ -66,21 +66,21 @@
 
                         <StackPanel Margin="0,0,5,0">
                             <TextBlock Text="Kategoria" FontSize="10" Foreground="#BDC3C7"/>
-                            <ComboBox x:Name="CategoryComboBox" SelectedIndex="0" Margin="0,5,0,0">
-                                <ComboBoxItem Content="Podstawowe"/>
-                                <ComboBoxItem Content="Osobiste"/>
-                            </ComboBox>
+                            <ComboBox x:Name="CategoryComboBox" 
+                                      DisplayMemberPath="Type"
+                                      SelectedValuePath="Id"
+                                      Margin="0,5,0,0"
+                                      SelectionChanged="CategoryComboBox_SelectionChanged"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Margin="5,0,0,0">
                             <TextBlock Text="Sub-kategoria" FontSize="10" Foreground="#BDC3C7"/>
-                            <ComboBox x:Name="SubCategoryComboBox" SelectedIndex="0" Margin="0,5,0,0">
-                                <ComboBoxItem Content="Produkty spożywcze"/>
-                                <ComboBoxItem Content="Transport"/>
-                                <ComboBoxItem Content="Hobby"/>
-                                <ComboBoxItem Content="Restauracje"/>
-                                <ComboBoxItem Content="Skarbonka"/>
-                            </ComboBox>
+                            <ComboBox x:Name="SubCategoryComboBox" 
+                                      DisplayMemberPath="Name"
+                                      SelectedValuePath="Id"
+                                      Margin="0,5,0,0"
+                                      IsEnabled="False"
+                                      SelectionChanged="SubCategoryComboBox_SelectionChanged"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>

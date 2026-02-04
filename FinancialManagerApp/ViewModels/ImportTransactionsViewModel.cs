@@ -39,7 +39,7 @@ namespace FinancialManagerApp.ViewModels
         }
 
         /// <summary>
-        /// Ładuje wszystkie kategorie i subkategorie z bazy danych
+        /// Ładuje wszystkie kategorie i subkategorie z bazy danych (bez kategorii "przychód" dla transakcji ujemnych)
         /// </summary>
         private void LoadCategories()
         {
@@ -49,7 +49,12 @@ namespace FinancialManagerApp.ViewModels
                 Categories.Clear();
                 foreach (var category in categories)
                 {
-                    Categories.Add(category);
+                    // Filtruj kategorię "przychód" (id=4) - nie pokazuj jej w ComboBoxach
+                    // Będzie używana tylko automatycznie dla transakcji dodatnich
+                    if (category.Id != 4)
+                    {
+                        Categories.Add(category);
+                    }
                 }
             }
             catch (Exception ex)
@@ -63,14 +68,17 @@ namespace FinancialManagerApp.ViewModels
         /// </summary>
         private void AssignCategories()
         {
+            // Załaduj wszystkie kategorie (w tym "przychód") do przypisania nazw
+            var allCategories = _categoryService.LoadCategoriesFromDatabase();
+            
             foreach (var transaction in ImportedTransactions)
             {
                 var (categoryId, subCategoryId) = _categoryService.AssignCategory(transaction, CurrentUser.Id);
                 transaction.CategoryId = categoryId;
                 transaction.SubCategoryId = subCategoryId ?? 0;
 
-                // Ustawienie nazw kategorii do wyświetlenia
-                var category = Categories.FirstOrDefault(c => c.Id == categoryId);
+                // Ustawienie nazw kategorii do wyświetlenia (użyj allCategories, aby znaleźć kategorię "przychód")
+                var category = allCategories.FirstOrDefault(c => c.Id == categoryId);
                 if (category != null)
                 {
                     transaction.Category = category.Type;
@@ -95,6 +103,9 @@ namespace FinancialManagerApp.ViewModels
         {
             try
             {
+                // Pobierz ustawienia użytkownika (szczególnie OverwriteTags)
+                var userSettings = _categoryService.LoadUserSettings(CurrentUser.Id);
+
                 using (var conn = new MySqlConnection(_connectionString))
                 {
                     conn.Open();
@@ -113,14 +124,22 @@ namespace FinancialManagerApp.ViewModels
                                     string phrase = _categoryService.ExtractPhraseForRule(importedTransaction);
                                     if (!string.IsNullOrWhiteSpace(phrase))
                                     {
-                                        bool ruleSaved = _categoryService.SaveUserRule(
-                                            CurrentUser.Id,
-                                            phrase,
-                                            importedTransaction.CategoryId,
-                                            importedTransaction.SubCategoryId > 0 ? importedTransaction.SubCategoryId : (int?)null
-                                        );
-                                        if (ruleSaved)
-                                            rulesCreated++;
+                                        // Sprawdź czy reguła już istnieje
+                                        bool ruleExists = CheckIfRuleExists(phrase, conn, transaction);
+                                        
+                                        // Jeśli OverwriteTags jest włączone lub reguła nie istnieje, zapisz/nadpisz
+                                        if (userSettings.OverwriteTags || !ruleExists)
+                                        {
+                                            bool ruleSaved = _categoryService.SaveUserRule(
+                                                CurrentUser.Id,
+                                                phrase,
+                                                importedTransaction.CategoryId,
+                                                importedTransaction.SubCategoryId > 0 ? importedTransaction.SubCategoryId : (int?)null
+                                            );
+                                            if (ruleSaved)
+                                                rulesCreated++;
+                                        }
+                                        // Jeśli OverwriteTags jest wyłączone i reguła istnieje, pomiń tworzenie
                                     }
                                 }
 
@@ -203,8 +222,40 @@ namespace FinancialManagerApp.ViewModels
         /// </summary>
         public ObservableCollection<SubCategoryModel> GetSubCategoriesForCategory(int categoryId)
         {
+            // Kategoria "przychód" (id=4) nie ma subkategorii
+            if (categoryId == 4)
+            {
+                return new ObservableCollection<SubCategoryModel>();
+            }
+            
             var category = Categories.FirstOrDefault(c => c.Id == categoryId);
             return category?.SubCategories ?? new ObservableCollection<SubCategoryModel>();
+        }
+
+        /// <summary>
+        /// Sprawdza czy reguła użytkownika już istnieje w bazie danych
+        /// </summary>
+        private bool CheckIfRuleExists(string phrase, MySqlConnection conn, MySqlTransaction transaction)
+        {
+            try
+            {
+                string query = @"
+                    SELECT COUNT(*) 
+                    FROM reguly_uzytkownika 
+                    WHERE id_uzytkownika = @userId AND fraza = @phrase";
+
+                using (var cmd = new MySqlCommand(query, conn, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@userId", CurrentUser.Id);
+                    cmd.Parameters.AddWithValue("@phrase", phrase);
+                    var count = Convert.ToInt32(cmd.ExecuteScalar());
+                    return count > 0;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

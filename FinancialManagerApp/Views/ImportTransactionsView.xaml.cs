@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using FinancialManagerApp.Models;
 using FinancialManagerApp.ViewModels;
+using FinancialManagerApp.Services;
 
 namespace FinancialManagerApp.Views
 {
@@ -24,6 +25,54 @@ namespace FinancialManagerApp.Views
                 var row = DataGridRow.GetRowContainingElement(categoryCombo);
                 if (row?.DataContext is ImportedTransactionModel transaction)
                 {
+                    // Jeśli to przychód (kwota dodatnia), dodaj kategorię "przychód" do ComboBoxa
+                    if (transaction.Amount > 0)
+                    {
+                        // Sprawdź czy kategoria "przychód" jest już w ItemsSource
+                        var currentItems = categoryCombo.ItemsSource as System.Collections.IEnumerable;
+                        bool hasIncomeCategory = false;
+                        if (currentItems != null)
+                        {
+                            foreach (var item in currentItems)
+                            {
+                                if (item is CategoryModel cat && cat.Id == 4)
+                                {
+                                    hasIncomeCategory = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Jeśli nie ma, dodaj kategorię "przychód"
+                        if (!hasIncomeCategory)
+                        {
+                            var categoryService = new CategoryAssignmentService();
+                            var allCategories = categoryService.LoadCategoriesFromDatabase();
+                            var incomeCategory = allCategories.FirstOrDefault(c => c.Id == 4);
+                            if (incomeCategory != null)
+                            {
+                                var categoriesList = new System.Collections.Generic.List<CategoryModel>();
+                                if (categoryCombo.ItemsSource != null)
+                                {
+                                    categoriesList.AddRange(categoryCombo.ItemsSource.Cast<CategoryModel>());
+                                }
+                                categoriesList.Add(incomeCategory);
+                                categoryCombo.ItemsSource = categoriesList;
+                            }
+                        }
+                        
+                        // Zablokuj ComboBoxy
+                        categoryCombo.IsEnabled = false;
+                        categoryCombo.Opacity = 0.6;
+                        
+                        var subCategoryCombo = FindSubCategoryComboBox(row);
+                        if (subCategoryCombo != null)
+                        {
+                            subCategoryCombo.IsEnabled = false;
+                            subCategoryCombo.Opacity = 0.6;
+                        }
+                    }
+                    
                     // Ustaw wybraną kategorię
                     categoryCombo.SelectedValue = transaction.CategoryId;
                 }
@@ -38,6 +87,14 @@ namespace FinancialManagerApp.Views
                 var row = DataGridRow.GetRowContainingElement(categoryCombo);
                 if (row?.DataContext is ImportedTransactionModel transaction)
                 {
+                    // Jeśli to przychód (kwota dodatnia), nie pozwól na zmianę kategorii
+                    if (transaction.Amount > 0)
+                    {
+                        // Przywróć kategorię "przychód"
+                        categoryCombo.SelectedValue = 4;
+                        return;
+                    }
+                    
                     // Zaktualizuj kategorię w transakcji
                     transaction.CategoryId = selectedCategory.Id;
                     transaction.Category = selectedCategory.Type;
@@ -73,6 +130,15 @@ namespace FinancialManagerApp.Views
                 var row = DataGridRow.GetRowContainingElement(subCategoryCombo);
                 if (row?.DataContext is ImportedTransactionModel transaction)
                 {
+                    // Jeśli to przychód (kwota dodatnia), zablokuj ComboBox
+                    if (transaction.Amount > 0)
+                    {
+                        subCategoryCombo.IsEnabled = false;
+                        subCategoryCombo.Opacity = 0.6;
+                        subCategoryCombo.ItemsSource = null; // Kategoria przychód nie ma subkategorii
+                        return;
+                    }
+                    
                     // Załaduj subkategorie dla kategorii tej transakcji
                     var subCategories = ViewModel.GetSubCategoriesForCategory(transaction.CategoryId);
                     subCategoryCombo.ItemsSource = subCategories;

@@ -21,16 +21,19 @@
                     <StackPanel>
                         <TextBlock Text="Automatyzacja i Tagowanie" FontSize="16" FontWeight="Bold" Margin="0,0,0,15" Foreground="#2C3E50"/>
 
+                        <CheckBox Content="Automatycznie zaznaczaj 'Checked Tag' po dopasowaniu reguły" 
+                                  IsChecked="{Binding AutoCheckTag}" Margin="0,8"/>
+
                         <CheckBox Content="Nadpisuj istniejące reguły przy ręcznej zmianie tagu" 
                                   IsChecked="{Binding OverwriteTags}" Margin="0,8"/>
 
                         <StackPanel Orientation="Horizontal" Margin="0,15,0,10">
                             <TextBlock Text="Tolerancja Przypisania (%): " VerticalAlignment="Center" Foreground="#34495E"/>
-                            <TextBox Width="60" Text="{Binding AssignmentTolerance, FallbackValue='10'}" 
+                            <TextBox Width="60" Text="{Binding AssignmentTolerance, FallbackValue='80'}" 
                                      Margin="10,0,0,0" Padding="5" FontWeight="Bold"/>
                         </StackPanel>
 
-                        <TextBlock Text="* Określa dopuszczalną różnicę w nazwie transakcji (algorytm Levenshteina)." 
+                        <TextBlock Text="* Określa dopuszczalną różnicę w nazwie transakcji (algorytm Levenshteina). Ustawienia są zapisywane automatycznie." 
                                    FontSize="11" Foreground="#95A5A6" FontStyle="Italic"/>
                     </StackPanel>
                 </Border>
@@ -69,7 +72,9 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Button Content="Usuń" Background="#E74C3C" Foreground="White" 
-                                                    Padding="12,4" FontSize="10" FontWeight="Bold" Cursor="Hand" HorizontalAlignment="Center"/>
+                                                    Padding="12,4" FontSize="10" FontWeight="Bold" Cursor="Hand" HorizontalAlignment="Center"
+                                                    Command="{Binding DataContext.DeleteRuleCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"/>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -78,24 +83,8 @@
                     </StackPanel>
                 </Border>
 
-                <Grid Margin="0,30,0,50">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Text="* Zmiany zostaną zastosowane przy następnej synchronizacji transakcji." 
-                               VerticalAlignment="Center" Foreground="#95A5A6" FontSize="12" FontStyle="Italic"/>
-
-                    <Button Grid.Column="1" Content="Zapisz wszystkie ustawienia" Background="#1ABC9C" Foreground="White" 
-                            Padding="30,12" FontWeight="Bold" FontSize="14" Cursor="Hand" BorderThickness="0" Command="{Binding SaveSettingsCommand}">
-                        <Button.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="5"/>
-                            </Style>
-                        </Button.Resources>
-                    </Button>
-                </Grid>
+                <TextBlock Text="* Wszystkie zmiany ustawień są zapisywane automatycznie." 
+                           Margin="0,30,0,50" VerticalAlignment="Center" Foreground="#95A5A6" FontSize="12" FontStyle="Italic"/>
             </StackPanel>
         </ScrollViewer>
     </Grid>

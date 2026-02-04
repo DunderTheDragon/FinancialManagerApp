@@ -41,7 +41,7 @@ namespace FinancialManagerApp.ViewModels
             TransactionsVM = new TransactionsViewModel(CurrentUser);
             WalletsVM = new WalletsViewModel(CurrentUser, TransactionsVM);
             GoalsVM = new GoalsViewModel(CurrentUser);
-            SettingsVM = new SettingsViewModel();
+            SettingsVM = new SettingsViewModel(CurrentUser);
 
             CurrentView = DashboardVM;
 
@@ -53,12 +53,16 @@ namespace FinancialManagerApp.ViewModels
             });
 
             // To jest główna komenda nawigacji z menu
-            NavigateToTransactionsCommand = new RelayCommand(o => { CurrentView = TransactionsVM; });
+            NavigateToTransactionsCommand = new RelayCommand(o => 
+            {
+                TransactionsVM.Refresh();
+                CurrentView = TransactionsVM;
+            });
 
             // DODAJ TO: To jest komenda, której szuka Twój przycisk "Zobacz wszystkie transakcje"
             ViewTransactionsCommand = new RelayCommand(o =>
             {
-                // Opcjonalnie: możesz tu dodać TransactionsVM.RefreshData(), jeśli chcesz świeżej listy
+                TransactionsVM.Refresh();
                 CurrentView = TransactionsVM;
             });
 
@@ -68,8 +72,17 @@ namespace FinancialManagerApp.ViewModels
                 CurrentView = WalletsVM;
             });
 
-            NavigateToGoalsCommand = new RelayCommand(o => { CurrentView = GoalsVM; });
-            NavigateToSettingsCommand = new RelayCommand(o => { CurrentView = SettingsVM; });
+            NavigateToGoalsCommand = new RelayCommand(o => 
+            {
+                GoalsVM.Refresh();
+                CurrentView = GoalsVM;
+            });
+            
+            NavigateToSettingsCommand = new RelayCommand(o => 
+            {
+                SettingsVM.Refresh();
+                CurrentView = SettingsVM;
+            });
         }
     }
 }

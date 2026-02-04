@@ -37,6 +37,14 @@ namespace FinancialManagerApp.ViewModels
             LoadGoalsFromDb();
         }
 
+        /// <summary>
+        /// Publiczna metoda do odświeżania danych - wywoływana przy przełączaniu widoków
+        /// </summary>
+        public void Refresh()
+        {
+            LoadGoalsFromDb();
+        }
+
         public void LoadGoalsFromDb()
         {
             try
